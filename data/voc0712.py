@@ -25,9 +25,8 @@ VOC_CLASSES = (  # always index 0
     'motorbike', 'person', 'pottedplant',
     'sheep', 'sofa', 'train', 'tvmonitor')
 
-# note: if you used our download scripts, this should be right
-path_to_dir = osp.dirname(osp.abspath(__file__))
-VOC_ROOT = path_to_dir + "/VOCdevkit/"
+
+# VOC数据集的目录，以下是笔者的目录。读者请根据自己的电脑来进行修改
 VOC_ROOT = "/home/k545/object-detection/dataset/VOCdevkit/"
 
 
