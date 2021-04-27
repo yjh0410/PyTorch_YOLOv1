@@ -38,3 +38,11 @@ COCO val
 
 <tr><th align="left" bgcolor=#f8f8f8> Our YOLOv1-608</th><td bgcolor=white> COCO eval </td><td bgcolor=white> 18.6 </td><td bgcolor=white> 39.0 </td><td bgcolor=white> 15.6 </td><td bgcolor=white> 5.5 </td><td bgcolor=white> 20.7 </td><td bgcolor=white> 30.6 </td></tr>
 </table></tbody>
+
+# Model
+
+Everyone can download my model files from BaiduYunDisk:
+
+Link: https://pan.baidu.com/s/1NmdqPwAmirknO5J__lg5Yw 
+
+Password: hlt6 
