@@ -63,11 +63,13 @@ def parse_args():
 
 def train():
     args = parse_args()
+    print("Setting Arguments.. : ", args)
+    print("----------------------------------------------------------")
 
     path_to_save = os.path.join(args.save_folder, args.dataset, args.version)
     os.makedirs(path_to_save, exist_ok=True)
     
-    # cuda
+    # 是否使用cuda
     if args.cuda:
         print('use cuda')
         cudnn.benchmark = True
@@ -75,7 +77,7 @@ def train():
     else:
         device = torch.device("cpu")
 
-    # multi-scale
+    # 是否使用多尺度训练
     if args.multi_scale:
         print('use the multi-scale trick ...')
         train_size = 640
@@ -85,12 +87,10 @@ def train():
         val_size = 416
 
     cfg = train_cfg
-    # dataset and evaluator
-    print("Setting Arguments.. : ", args)
-    print("----------------------------------------------------------")
-    print('Loading the dataset...')
 
+    # 构建dataset类和dataloader类
     if args.dataset == 'voc':
+        # 加载voc数据集
         data_dir = VOC_ROOT
         num_classes = 20
         dataset = VOCDetection(root=data_dir, 
@@ -105,6 +105,7 @@ def train():
                                     )
 
     elif args.dataset == 'coco':
+        # 加载COCO数据集
         data_dir = coco_root
         num_classes = 80
         dataset = COCODataset(
@@ -129,7 +130,7 @@ def train():
     print('The dataset size:', len(dataset))
     print("----------------------------------------------------------")
 
-    # dataloader
+    # dataloader类
     dataloader = torch.utils.data.DataLoader(
                     dataset, 
                     batch_size=args.batch_size, 
@@ -139,7 +140,7 @@ def train():
                     pin_memory=True
                     )
 
-    # build model
+    # 构建我们的模型
     if args.version == 'yolo':
         from models.yolo import myYOLO
         yolo_net = myYOLO(device, input_size=train_size, num_classes=num_classes, trainable=True)
@@ -152,7 +153,7 @@ def train():
     model = yolo_net
     model.to(device).train()
 
-    # use tfboard
+    # 使用 tensorboard 可视化训练过程
     if args.tfboard:
         print('use tensorboard')
         from torch.utils.tensorboard import SummaryWriter
@@ -167,7 +168,7 @@ def train():
         print('keep training model: %s' % (args.resume))
         model.load_state_dict(torch.load(args.resume, map_location=device))
 
-    # optimizer setup
+    # 构建训练优化器
     base_lr = args.lr
     tmp_lr = base_lr
     optimizer = optim.SGD(model.parameters(), 
@@ -176,41 +177,39 @@ def train():
                             weight_decay=args.weight_decay
                             )
 
-    max_epoch = cfg['max_epoch']
-    epoch_size = len(dataset) // args.batch_size
+    max_epoch = cfg['max_epoch']                  # 最大训练轮次
+    epoch_size = len(dataset) // args.batch_size  # 每一训练轮次的迭代次数
 
-    # start training loop
+    # 开始训练
     t0 = time.time()
-
     for epoch in range(args.start_epoch, max_epoch):
 
-        # use step lr
+        # 使用阶梯学习率衰减策略
         if epoch in cfg['lr_epoch']:
             tmp_lr = tmp_lr * 0.1
             set_lr(optimizer, tmp_lr)
     
         for iter_i, (images, targets) in enumerate(dataloader):
-            # WarmUp strategy for learning rate
+            # 使用warm-up策略来调整早期的学习率
             if not args.no_warm_up:
                 if epoch < args.wp_epoch:
                     tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
-                    # tmp_lr = 1e-6 + (base_lr-1e-6) * (iter_i+epoch*epoch_size) / (epoch_size * (args.wp_epoch))
                     set_lr(optimizer, tmp_lr)
 
                 elif epoch == args.wp_epoch and iter_i == 0:
                     tmp_lr = base_lr
                     set_lr(optimizer, tmp_lr) 
 
-            # multi-scale trick
+            # 多尺度训练
             if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
-                # randomly choose a new size
+                # 随机选择一个新的尺寸
                 train_size = random.randint(10, 19) * 32
                 model.set_grid(train_size)
             if args.multi_scale:
-                # interpolate
+                # 插值
                 images = torch.nn.functional.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
             
-            # make train label
+            # 制作训练标签
             targets = [label.tolist() for label in targets]
             targets = tools.gt_creator(input_size=train_size, 
                                        stride=yolo_net.stride, 
@@ -221,15 +220,14 @@ def train():
             images = images.to(device)          
             targets = targets.to(device)
             
-            # forward and loss
+            # 前向推理和计算损失
             conf_loss, cls_loss, bbox_loss, total_loss = model(images, target=targets)
 
-            # backprop
+            # 反向传播
             total_loss.backward()        
             optimizer.step()
             optimizer.zero_grad()
 
-            # display
             if iter_i % 10 == 0:
                 if args.tfboard:
                     # viz loss
@@ -241,7 +239,12 @@ def train():
                 print('[Epoch %d/%d][Iter %d/%d][lr %.6f]'
                     '[Loss: obj %.2f || cls %.2f || bbox %.2f || total %.2f || size %d || time: %.2f]'
                         % (epoch+1, max_epoch, iter_i, epoch_size, tmp_lr,
-                            conf_loss.item(), cls_loss.item(), bbox_loss.item(), total_loss.item(), train_size, t1-t0),
+                            conf_loss.item(), 
+                            cls_loss.item(), 
+                            bbox_loss.item(), 
+                            total_loss.item(), 
+                            train_size, 
+                            t1-t0),
                         flush=True)
 
                 t0 = time.time()
