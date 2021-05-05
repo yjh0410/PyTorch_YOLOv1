@@ -16,15 +16,15 @@ parser.add_argument('-v', '--version', default='yolo',
 parser.add_argument('-d', '--dataset', default='voc',
                     help='voc, coco-val.')
 parser.add_argument('-size', '--input_size', default=416, type=int,
-                    help='input_size')
+                    help='输入图像尺寸')
 parser.add_argument('--trained_model', default='weight/voc/',
-                    type=str, help='Trained state_dict file path to open')
+                    type=str, help='模型权重的路径')
 parser.add_argument('--conf_thresh', default=0.1, type=float,
-                    help='Confidence threshold')
+                    help='得分阈值')
 parser.add_argument('--nms_thresh', default=0.50, type=float,
-                    help='NMS threshold')
+                    help='NMS 阈值')
 parser.add_argument('--visual_threshold', default=0.3, type=float,
-                    help='Final confidence threshold')
+                    help='用于可视化的阈值参数')
 parser.add_argument('--cuda', action='store_true', default=False, 
                     help='use cuda.')
 
@@ -65,20 +65,20 @@ def test(net, device, testset, transform, thresh, class_colors=None, class_names
         img, _ = testset.pull_image(index)
         h, w, _ = img.shape
 
-        # to tensor
+        # 预处理图像，并将其转换为tensor类型
         x = torch.from_numpy(transform(img)[0][:, :, (2, 1, 0)]).permute(2, 0, 1)
         x = x.unsqueeze(0).to(device)
 
         t0 = time.time()
-        # forward
+        # 前向推理
         bboxes, scores, cls_inds = net(x)
         print("detection time used ", time.time() - t0, "s")
         
-        # scale each detection back up to the image
+        # 将预测的输出映射到原图的尺寸上去
         scale = np.array([[w, h, w, h]])
-        # map the boxes to origin image scale
         bboxes *= scale
 
+        # 可视化检测结果
         img_processed = vis(img, bboxes, scores, cls_inds, thresh, class_colors, class_names, class_indexs, dataset)
         cv2.imshow('detection', img_processed)
         cv2.waitKey(0)
@@ -87,7 +87,7 @@ def test(net, device, testset, transform, thresh, class_colors=None, class_names
 
 
 if __name__ == '__main__':
-    # get device
+    # 是否使用cuda
     if args.cuda:
         print('use cuda')
         cudnn.benchmark = True
@@ -95,10 +95,12 @@ if __name__ == '__main__':
     else:
         device = torch.device("cpu")
 
+    # 输入图像的尺寸
     input_size = args.input_size
 
-    # dataset
+    # 构建数据集
     if args.dataset == 'voc':
+        # 加载VOC2007 test数据集
         print('test on voc ...')
         class_names = VOC_CLASSES
         class_indexs = None
@@ -106,6 +108,7 @@ if __name__ == '__main__':
         dataset = VOCDetection(root=VOC_ROOT, img_size=input_size, image_sets=[('2007', 'test')], transform=None)
 
     elif args.dataset == 'coco-val':
+        # 加载COCO val数据集
         print('test on coco-val ...')
         class_names = coco_class_labels
         class_indexs = coco_class_index
@@ -116,9 +119,10 @@ if __name__ == '__main__':
                     name='val2017',
                     img_size=input_size)
 
+    # 用于可视化，给不同类别的边界框赋予不同的颜色，为了便于区分。
     class_colors = [(np.random.randint(255),np.random.randint(255),np.random.randint(255)) for _ in range(num_classes)]
 
-    # build model
+    # 构建模型
     if args.version == 'yolo':
         from models.yolo import myYOLO
         net = myYOLO(device, input_size=input_size, num_classes=num_classes, trainable=False)
@@ -127,11 +131,12 @@ if __name__ == '__main__':
         print('Unknown Version !!!')
         exit()
 
+    # 加载已训练好的模型权重
     net.load_state_dict(torch.load(args.trained_model, map_location=device))
     net.to(device).eval()
     print('Finished loading model!')
 
-    # evaluation
+    # 开始测试
     test(net=net, 
         device=device, 
         testset=dataset,
