@@ -8,21 +8,20 @@ import tools
 class myYOLO(nn.Module):
     def __init__(self, device, input_size=None, num_classes=20, trainable=False, conf_thresh=0.01, nms_thresh=0.5):
         super(myYOLO, self).__init__()
-        self.device = device
-        self.num_classes = num_classes
-        self.trainable = trainable
-        self.conf_thresh = conf_thresh
-        self.nms_thresh = nms_thresh
-        self.stride = 32
-        self.grid_cell = self.create_grid(input_size)
-        self.input_size = input_size
+        self.device = device                           # cuda或者是cpu
+        self.num_classes = num_classes                 # 类别的数量
+        self.trainable = trainable                     # 训练的标记
+        self.conf_thresh = conf_thresh                 # 得分阈值
+        self.nms_thresh = nms_thresh                   # NMS阈值
+        self.stride = 32                               # 网络的最大步长
+        self.grid_cell = self.create_grid(input_size)  # 网格坐标矩阵
+        self.input_size = input_size                   # 输入图像大小
         
-
-        # we use resnet18 as backbone
+        # backbone: resnet18
         self.backbone = resnet18(pretrained=True)
         c5 = 512
 
-        # neck
+        # neck: SPP
         self.neck = nn.Sequential(
             SPP(),
             Conv(c5*4, c5, k=1),
@@ -41,6 +40,9 @@ class myYOLO(nn.Module):
     
 
     def create_grid(self, input_size):
+        """ 
+            用于生成G矩阵，其中每个元素都是特征图上的像素坐标。
+        """
         w, h = input_size, input_size
         # generate grid cells
         ws, hs = w // self.stride, h // self.stride
@@ -52,20 +54,23 @@ class myYOLO(nn.Module):
 
 
     def set_grid(self, input_size):
+        """
+            用于重置G矩阵。
+        """
         self.input_size = input_size
         self.grid_cell = self.create_grid(input_size)
 
 
     def decode_boxes(self, pred):
         """
-        input box :  [tx, ty, tw, th]
-        output box : [xmin, ymin, xmax, ymax]
+            将txtytwth转换为常用的x1y1x2y2形式。
         """
         output = torch.zeros_like(pred)
+        # 得到所有bbox 的中心点坐标和宽高
         pred[:, :, :2] = torch.sigmoid(pred[:, :, :2]) + self.grid_cell
         pred[:, :, 2:] = torch.exp(pred[:, :, 2:])
 
-        # [c_x, c_y, w, h] -> [xmin, ymin, xmax, ymax]
+        # 将所有bbox的中心带你坐标和宽高换算成x1y1x2y2形式
         output[:, :, 0] = pred[:, :, 0] * self.stride - pred[:, :, 2] / 2
         output[:, :, 1] = pred[:, :, 1] * self.stride - pred[:, :, 3] / 2
         output[:, :, 2] = pred[:, :, 0] * self.stride + pred[:, :, 2] / 2
@@ -81,86 +86,86 @@ class myYOLO(nn.Module):
         x2 = dets[:, 2]  #xmax
         y2 = dets[:, 3]  #ymax
 
-        areas = (x2 - x1) * (y2 - y1)                 # the size of bbox
-        order = scores.argsort()[::-1]                        # sort bounding boxes by decreasing order
+        areas = (x2 - x1) * (y2 - y1)
+        order = scores.argsort()[::-1]
+        
 
-        keep = []                                             # store the final bounding boxes
+        keep = []                                             
         while order.size > 0:
-            i = order[0]                                      #the index of the bbox with highest confidence
-            keep.append(i)                                    #save it to keep
+            i = order[0]
+            keep.append(i)
+            # 计算交集的左上角点和右下角点的坐标
             xx1 = np.maximum(x1[i], x1[order[1:]])
             yy1 = np.maximum(y1[i], y1[order[1:]])
             xx2 = np.minimum(x2[i], x2[order[1:]])
             yy2 = np.minimum(y2[i], y2[order[1:]])
-
+            # 计算交集的宽高
             w = np.maximum(1e-28, xx2 - xx1)
             h = np.maximum(1e-28, yy2 - yy1)
+            # 计算交集的面积
             inter = w * h
 
-            # Cross Area / (bbox + particular area - Cross Area)
+            # 计算交并比
             ovr = inter / (areas[i] + areas[order[1:]] - inter)
-            #reserve all the boundingbox whose ovr less than thresh
+            # 滤除超过nms阈值的检测框
             inds = np.where(ovr <= self.nms_thresh)[0]
             order = order[inds + 1]
 
         return keep
 
 
-    def postprocess(self, all_local, all_conf, exchange=True, im_shape=None):
+    def postprocess(self, bboxes, scores):
         """
-        bbox_pred: (HxW, 4), bsize = 1
-        prob_pred: (HxW, num_classes), bsize = 1
+        bboxes: (HxW, 4), bsize = 1
+        scores: (HxW, num_classes), bsize = 1
         """
-        bbox_pred = all_local
-        prob_pred = all_conf
 
-        cls_inds = np.argmax(prob_pred, axis=1)
-        prob_pred = prob_pred[(np.arange(prob_pred.shape[0]), cls_inds)]
-        scores = prob_pred.copy()
+        cls_inds = np.argmax(scores, axis=1)
+        scores = scores[(np.arange(scores.shape[0]), cls_inds)]
         
         # threshold
         keep = np.where(scores >= self.conf_thresh)
-        bbox_pred = bbox_pred[keep]
+        bboxes = bboxes[keep]
         scores = scores[keep]
         cls_inds = cls_inds[keep]
 
         # NMS
-        keep = np.zeros(len(bbox_pred), dtype=np.int)
+        keep = np.zeros(len(bboxes), dtype=np.int)
         for i in range(self.num_classes):
             inds = np.where(cls_inds == i)[0]
             if len(inds) == 0:
                 continue
-            c_bboxes = bbox_pred[inds]
+            c_bboxes = bboxes[inds]
             c_scores = scores[inds]
             c_keep = self.nms(c_bboxes, c_scores)
             keep[inds[c_keep]] = 1
 
         keep = np.where(keep > 0)
-        bbox_pred = bbox_pred[keep]
+        bboxes = bboxes[keep]
         scores = scores[keep]
         cls_inds = cls_inds[keep]
 
-        if im_shape != None:
-            # clip
-            bbox_pred = self.clip_boxes(bbox_pred, im_shape)
-
-        return bbox_pred, scores, cls_inds
+        return bboxes, scores, cls_inds
 
 
     def forward(self, x, target=None):
-        # backbone
-        _, _, c5 = self.backbone(x)
+        # backbone主干网络
+        c5 = self.backbone(x)
 
-        # head
+        # neck网络
         p5 = self.neck(c5)
+
+        # detection head网络
         p5 = self.convsets(p5)
 
-        # pred
+        # 预测层
         pred = self.pred(p5)
-        # [B, C, H, W] -> [B, C, H*W] -> [B, H8W, C]
+
+        # 对pred 的size做一些view调整，便于后续的处理
+        # [B, C, H, W] -> [B, C, H*W] -> [B, H*W, C]
         pred = pred.view(p5.size(0), 1 + self.num_classes + 4, -1).permute(0, 2, 1)
 
-        # Divide pred to obj_pred, txtytwth_pred and cls_pred   
+        # 从pred中分离出objectness预测、类别class预测、bbox的txtytwth预测  
         # [B, H*W, 1]
         conf_pred = pred[:, :, :1]
         # [B, H*W, num_cls]
@@ -181,14 +186,19 @@ class myYOLO(nn.Module):
         else:
             with torch.no_grad():
                 # batch size = 1
-                all_conf = torch.sigmoid(conf_pred)[0]           # 0 is because that these is only 1 batch.
-                all_bbox = torch.clamp((self.decode_boxes(txtytwth_pred) / self.input_size)[0], 0., 1.)
-                all_class = (torch.softmax(cls_pred[0, :, :], dim=1) * all_conf)
+                # 测试时，笔者默认batch是1，因此，我们不需要用batch这个维度，用[0]将其取走。
+                # [B, H*W, 1] -> [H*W, 1]
+                conf_pred = torch.sigmoid(conf_pred)[0]
+                # [B, H*W, 4] -> [H*W, 4], 并做归一化处理
+                bboxes = torch.clamp((self.decode_boxes(txtytwth_pred) / self.input_size)[0], 0., 1.)
+                # [B, H*W, 1] -> [H*W, num_class]，得分=<类别置信度>乘以<objectness置信度>
+                scores = (torch.softmax(cls_pred[0, :, :], dim=1) * conf_pred)
                 
-                # separate box pred and class conf
-                all_class = all_class.to('cpu').numpy()
-                all_bbox = all_bbox.to('cpu').numpy()
+                # 将预测放在cpu处理上，以便进行后处理
+                scores = scores.to('cpu').numpy()
+                bboxes = bboxes.to('cpu').numpy()
                 
-                bboxes, scores, cls_inds = self.postprocess(all_bbox, all_class)
+                # 后处理
+                bboxes, scores, cls_inds = self.postprocess(bboxes, scores)
 
                 return bboxes, scores, cls_inds
