@@ -106,7 +106,7 @@ class ToPercentCoords(object):
 
 
 class Resize(object):
-    def __init__(self, size=416):
+    def __init__(self, size=640):
         self.size = size
 
     def __call__(self, image, boxes=None, labels=None):
@@ -402,21 +402,66 @@ class PhotometricDistort(object):
 
 
 class SSDAugmentation(object):
-    def __init__(self, size=416, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
+    def __init__(self, size=640, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
         self.mean = mean
         self.size = size
         self.std = std
         self.augment = Compose([
-            ConvertFromInts(),
-            ToAbsoluteCoords(),
-            PhotometricDistort(),
-            Expand(self.mean),
-            RandomSampleCrop(),
-            RandomMirror(),
-            ToPercentCoords(),
-            Resize(self.size),
-            Normalize(self.mean, self.std)
+            ConvertFromInts(),             # 将int类型转换为float32类型
+            ToAbsoluteCoords(),            # 将归一化的相对坐标转换为绝对坐标
+            PhotometricDistort(),          # 图像颜色增强
+            Expand(self.mean),             # 扩充增强
+            RandomSampleCrop(),            # 随机剪裁
+            RandomMirror(),                # 随机水平镜像
+            ToPercentCoords(),             # 将绝对坐标转换为归一化的相对坐标
+            Resize(self.size),             # resize操作
+            Normalize(self.mean, self.std) # 图像颜色归一化
         ])
 
     def __call__(self, img, boxes, labels):
         return self.augment(img, boxes, labels)
+
+
+if __name__ == '__main__':
+    import cv2
+    import numpy as np
+
+    # 为了方便展示，均值设为0， 方差设为1
+    size = 416
+    transform = SSDAugmentation(size=size, 
+                                mean=(0, 0, 0),
+                                std=(1, 1, 1)
+                                )
+    # 读取图片, 图片的尺寸是 640x640 的
+    img = cv2.imread('-1.jpg')
+
+    # 标签。注意，这个标签的边界框坐标已经归一化了
+    gt = np.array([[0.28, 0.14714715, 0.998, 0.98798799, 6.]])
+
+    # 数据增强
+    img_t, boxes, labels = transform(img=img, boxes=gt[:, :4], labels=gt[:, 4:])
+
+    # 将增强后的图片改为uint8类型，以便可视化
+    img_t = (img_t * 255.).astype(np.uint8)
+    gt_t = np.concatenate([boxes, labels], axis=1)
+
+    # 可视化原始标签
+    x1, y1, x2, y2, cls_id = gt[0]
+    x1 *= 640
+    y1 *= 640
+    x2 *= 640
+    y2 *= 640
+    img = cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+    cv2.imshow('original image', img)
+    cv2.waitKey(0)
+
+    # 可视化增强后的标签
+    x1, y1, x2, y2, cls_id = gt_t[0]
+    x1 *= size
+    y1 *= size
+    x2 *= size
+    y2 *= size
+    img_t = cv2.rectangle(img_t, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+    cv2.imshow('augmentation image', img_t)
+    cv2.waitKey(0)
+    
