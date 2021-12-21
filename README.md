@@ -1,9 +1,18 @@
 # PyTorch_YOLOv1
-本项目代码是服务于本人的YOLO入门教程的知乎专栏：《YOLO-从零开始入门目标检测》，网页链接如下：
+这个YOLOv1项目是配合我在知乎专栏上连载的《YOLO入门教程》而创建的：
 
-https://www.zhihu.com/column/c_1364967262269693952
+https://zhuanlan.zhihu.com/c_1364967262269693952
 
-欢迎学习和交流！
+感兴趣的小伙伴可以配合着上面的专栏来一起学习，入门目标检测。
+
+另外，这个项目在小batch size 的情况，如batch size=8，可能会出现nan的问题，经过其他伙伴的调试，
+在batch size=8时，可以把学习率lr跳到2e-4，兴许就可以稳定炼丹啦！ 我自己训练的时候，batch size
+设置为16或32，比较大，所以训练稳定。
+
+当然，这里也诚挚推荐我的另一个YOLO项目，训练更加稳定，性能更好呦
+
+https://github.com/yjh0410/PyTorch_YOLO-Family
+
 
 ## 网络结构
 
