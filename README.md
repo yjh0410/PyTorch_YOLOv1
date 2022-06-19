@@ -60,11 +60,4 @@ COCO val 验证集
 | YOLOv1            |  512×512       |   18.1  |   37.9    |    15.5   |   -   |
 | YOLOv1            |  608×608       |   18.6  |   39.0    |    15.6   |   [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_17.34_35.28.pth)   |
 
-
-# Model
-
-大家可以从下面的百度网盘链接来下载已训练好的模型：
-
-链接: https://pan.baidu.com/s/1NmdqPwAmirknO5J__lg5Yw 
-
-提起码: hlt6 
+大家可以点击表格中的[github]()来下载模型权重文件。
