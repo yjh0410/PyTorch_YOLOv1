@@ -27,7 +27,7 @@ VOC_CLASSES = (  # always index 0
 
 
 # VOC数据集的目录，以下是笔者的目录。读者请根据自己的电脑来进行修改
-VOC_ROOT = "/home/k545/object-detection/dataset/VOCdevkit/"
+VOC_ROOT = "/mnt/share/ssd2/dataset/VOCdevkit/"
 
 
 class VOCAnnotationTransform(object):
