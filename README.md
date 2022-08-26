@@ -48,7 +48,7 @@ VOC2007 test 测试集
 | YOLOv1            |  320×320       |   64.8  |   -   |
 | YOLOv1            |  416×416       |   69.2  |   -   |
 | YOLOv1            |  512×512       |   71.8  |   -   |
-| YOLOv1            |  608×608       |   73.3  |   [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_64.4_68.5_71.5.pth)   |
+| YOLOv1            |  608×608       |   73.3  |   [github]()   |
 
 
 COCO val 验证集
@@ -58,6 +58,8 @@ COCO val 验证集
 | YOLOv1            |  320×320       |   13.7  |   29.6    |    11.3   |   -   |
 | YOLOv1            |  416×416       |   16.4  |   34.7    |    13.9   |   -   |
 | YOLOv1            |  512×512       |   18.1  |   37.9    |    15.5   |   -   |
-| YOLOv1            |  608×608       |   18.6  |   39.0    |    15.6   |   [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_17.34_35.28.pth)   |
+| YOLOv1            |  608×608       |   18.6  |   39.0    |    15.6   |   [github]()   |
 
 大家可以点击表格中的[github]()来下载模型权重文件。
+
+抱歉，正确的权重文件丢失了，很难受……
