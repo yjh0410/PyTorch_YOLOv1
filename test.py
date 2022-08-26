@@ -6,8 +6,8 @@ import torch.backends.cudnn as cudnn
 from data import *
 import numpy as np
 import cv2
-import tools
 import time
+from utils.misc import load_weight
 
 
 parser = argparse.ArgumentParser(description='YOLO Detection')
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         exit()
 
     # 加载已训练好的模型权重
-    net.load_state_dict(torch.load(args.trained_model, map_location=device), strict=False)
+    net = load_weight(net, args.trained_model)
     net.to(device).eval()
     print('Finished loading model!')
 
