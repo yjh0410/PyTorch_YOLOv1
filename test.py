@@ -132,7 +132,7 @@ if __name__ == '__main__':
         exit()
 
     # 加载已训练好的模型权重
-    net.load_state_dict(torch.load(args.trained_model, map_location=device))
+    net.load_state_dict(torch.load(args.trained_model, map_location=device), strict=False)
     net.to(device).eval()
     print('Finished loading model!')
 
