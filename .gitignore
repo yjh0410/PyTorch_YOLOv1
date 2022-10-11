@@ -2,5 +2,4 @@ __pycache__
 .vscode
 *pt
 *.pth
-*.txt
 *.pkl

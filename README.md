@@ -13,6 +13,25 @@ https://zhuanlan.zhihu.com/c_1364967262269693952
 
 https://github.com/yjh0410/PyTorch_YOLO-Family
 
+# 配置环境
+- 我们建议使用anaconda来创建虚拟环境:
+```Shell
+conda create -n yolo python=3.6
+```
+
+- 然后，激活虚拟环境:
+```Shell
+conda activate yolo
+```
+
+- 配置环境:
+运行下方的命令即可一键配置相关的深度学习环境：
+```Shell
+pip install -r requirements.txt 
+```
+
+We suggest that PyTorch should be higher than 1.9.0 and Torchvision should be higher than 0.10.3. 
+At least, please make sure your torch is version 1.x.
 
 ## 网络结构
 
@@ -45,10 +64,10 @@ VOC2007 test 测试集
 
 | Model             |  Input size    |   mAP   | Weight|
 |-------------------|----------------|---------|-------|
-| YOLOv1            |  320×320       |   64.8  |   -   |
-| YOLOv1            |  416×416       |   69.2  |   -   |
-| YOLOv1            |  512×512       |   71.8  |   -   |
-| YOLOv1            |  608×608       |   73.3  |   [github]()   |
+| YOLOv1            |  320×320       |   64.6  |   -   |
+| YOLOv1            |  416×416       |   69.6  |   -   |
+| YOLOv1            |  512×512       |   72.2  |   -   |
+| YOLOv1            |  608×608       |   73.3  | [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_69.6.pth) |
 
 
 COCO val 验证集
@@ -58,8 +77,40 @@ COCO val 验证集
 | YOLOv1            |  320×320       |   13.7  |   29.6    |   -   |
 | YOLOv1            |  416×416       |   16.4  |   34.7    |   -   |
 | YOLOv1            |  512×512       |   18.1  |   37.9    |   -   |
-| YOLOv1            |  608×608       |   18.6  |   39.0    |   [github]()   |
+| YOLOv1            |  608×608       |   18.6  |   39.0    | [github]() |
 
 大家可以点击表格中的[github]()来下载模型权重文件。
 
-抱歉，正确的权重文件丢失了，暂时没有找到，很难受……
+# 训练模型
+运行下方的命令可开始在```VOC```数据集上进行训练：
+```Shell
+python train.py \
+        --cuda \
+        -d voc \
+        -ms \
+        --batch_size 32 \
+        --lr 0.001 \
+        --max_epoch 150 \
+        --lr_epoch 90 120 \
+```
+
+# 测试模型
+运行下方的命令可开始在```VOC```数据集上进行训练：
+```Shell
+python test.py \
+        --cuda \
+        -d voc \
+        -size 416 \
+        --weight path/to/weight \
+```
+
+
+# 验证模型
+运行下方的命令可开始在```VOC```数据集上进行训练：
+```Shell
+python eval.py \
+        --cuda \
+        -d voc \
+        -size 416 \
+        --weight path/to/weight \
+```
