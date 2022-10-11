@@ -6,6 +6,7 @@ import argparse
 import time
 
 import torch
+import torch.nn.functional as F
 import torch.optim as optim
 
 from data.coco import COCODataset
@@ -16,6 +17,8 @@ import tools
 from utils.misc import detection_collate
 from evaluator.cocoapi_evaluator import COCOAPIEvaluator
 from evaluator.vocapi_evaluator import VOCAPIEvaluator
+
+from models.build import build_yolo
 
 
 def parse_args():
@@ -104,16 +107,7 @@ def train():
     dataloader = build_dataloader(args, dataset)
 
     # 构建我们的模型
-    if args.version == 'yolo':
-        from models.yolo import myYOLO
-        yolo_net = myYOLO(device, input_size=train_size, num_classes=num_classes, trainable=True)
-        print('Let us train yolo on the %s dataset ......' % (args.dataset))
-
-    else:
-        print('We only support YOLO !!!')
-        exit()
-
-    model = yolo_net
+    model = build_yolo(args, device, train_size, num_classes, trainablea=True)
     model.to(device).train()
 
     # 使用 tensorboard 可视化训练过程
@@ -197,12 +191,12 @@ def train():
                 model.set_grid(train_size)
             if args.multi_scale:
                 # 插值
-                images = torch.nn.functional.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
+                images = F.interpolate(images, size=train_size, mode='bilinear', align_corners=False)
             
             # 制作训练标签
             targets = [label.tolist() for label in targets]
             targets = tools.gt_creator(input_size=train_size, 
-                                       stride=yolo_net.stride, 
+                                       stride=model.stride, 
                                        label_lists=targets
                                        )
             

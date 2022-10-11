@@ -1,23 +1,29 @@
-import os
 import argparse
 import torch
-import torch.nn as nn
-import torch.backends.cudnn as cudnn
-from data import *
 import numpy as np
 import cv2
+import os
 import time
+
 from utils.misc import load_weight
+from data.voc0712 import VOCDetection, VOC_CLASSES
+from data.coco import COCODataset, coco_class_index, coco_class_labels
+from data.transform import BaseTransform
+
+from models.build import build_yolo
 
 
 parser = argparse.ArgumentParser(description='YOLO Detection')
-parser.add_argument('-v', '--version', default='yolo',
-                    help='yolo')
 parser.add_argument('-d', '--dataset', default='voc',
                     help='voc, coco-val.')
+parser.add_argument('--root', default='/mnt/share/ssd2/dataset',
+                    help='data root')
 parser.add_argument('-size', '--input_size', default=416, type=int,
                     help='输入图像尺寸')
-parser.add_argument('--trained_model', default='weight/voc/',
+
+parser.add_argument('-v', '--version', default='yolo',
+                    help='yolo')
+parser.add_argument('--weight', default=None,
                     type=str, help='模型权重的路径')
 parser.add_argument('--conf_thresh', default=0.1, type=float,
                     help='得分阈值')
@@ -90,7 +96,6 @@ if __name__ == '__main__':
     # 是否使用cuda
     if args.cuda:
         print('use cuda')
-        cudnn.benchmark = True
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
@@ -100,47 +105,52 @@ if __name__ == '__main__':
 
     # 构建数据集
     if args.dataset == 'voc':
+        data_root = os.path.join(args.root, 'VOCdevkit')
         # 加载VOC2007 test数据集
         print('test on voc ...')
         class_names = VOC_CLASSES
         class_indexs = None
         num_classes = 20
-        dataset = VOCDetection(root=VOC_ROOT, img_size=input_size, image_sets=[('2007', 'test')], transform=None)
+        dataset = VOCDetection(
+            root=data_root,
+            img_size=input_size,
+            image_sets=[('2007', 'test')],
+            transform=None
+            )
 
     elif args.dataset == 'coco-val':
+        data_root = os.path.join(args.root, 'COCO')
         # 加载COCO val数据集
         print('test on coco-val ...')
         class_names = coco_class_labels
         class_indexs = coco_class_index
         num_classes = 80
         dataset = COCODataset(
-                    data_dir=coco_root,
+                    data_dir=data_root,
                     json_file='instances_val2017.json',
-                    name='val2017',
+                    image_set='val2017',
                     img_size=input_size)
 
     # 用于可视化，给不同类别的边界框赋予不同的颜色，为了便于区分。
-    class_colors = [(np.random.randint(255),np.random.randint(255),np.random.randint(255)) for _ in range(num_classes)]
+    class_colors = [(np.random.randint(255),
+                     np.random.randint(255),
+                     np.random.randint(255)) for _ in range(num_classes)]
 
     # 构建模型
-    if args.version == 'yolo':
-        from models.yolo import myYOLO
-        net = myYOLO(device, input_size=input_size, num_classes=num_classes, trainable=False)
-
-    else:
-        print('Unknown Version !!!')
-        exit()
+    model = build_yolo(args, device, input_size, num_classes, trainablea=True)
 
     # 加载已训练好的模型权重
-    net = load_weight(net, args.trained_model)
-    net.to(device).eval()
+    model = load_weight(model, args.trained_model)
+    model.to(device).eval()
     print('Finished loading model!')
 
+    val_transform = BaseTransform(input_size)
+
     # 开始测试
-    test(net=net, 
+    test(net=model, 
         device=device, 
         testset=dataset,
-        transform=BaseTransform(input_size),
+        transform=val_transform,
         thresh=args.visual_threshold,
         class_colors=class_colors,
         class_names=class_names,
