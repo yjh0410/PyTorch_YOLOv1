@@ -87,7 +87,7 @@ class myYOLO(nn.Module):
 
         # 将所有bbox的中心带你坐标和宽高换算成x1y1x2y2形式
         output[..., :2] = pred[..., :2] * self.stride - pred[..., 2:] * 0.5
-        output[..., 2:] = pred[..., 2:] * self.stride + pred[..., 2:] * 0.5
+        output[..., 2:] = pred[..., :2] * self.stride + pred[..., 2:] * 0.5
         
         return output
 
