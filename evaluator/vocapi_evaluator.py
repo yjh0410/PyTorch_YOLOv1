@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from data.voc0712 import VOCDetection
+from data.voc0712 import VOCDetection, VOC_CLASSES
 import os
 import time
 import numpy as np
@@ -11,12 +11,12 @@ import xml.etree.ElementTree as ET
 
 class VOCAPIEvaluator():
     """ VOC AP Evaluation class """
-    def __init__(self, data_root, img_size, device, transform, labelmap, set_type='test', year='2007', display=False):
+    def __init__(self, data_root, img_size, device, transform, set_type='test', year='2007', display=False):
         self.data_root = data_root
         self.img_size = img_size
         self.device = device
         self.transform = transform
-        self.labelmap = labelmap
+        self.labelmap = VOC_CLASSES
         self.set_type = set_type
         self.year = year
         self.display = display

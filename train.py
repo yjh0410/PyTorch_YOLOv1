@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 
 from data.coco import COCODataset
-from data.voc0712 import VOCDetection, VOC_CLASSES
+from data.voc0712 import VOCDetection
 from data.transform import Augmentation, BaseTransform
 
 import tools
@@ -149,6 +149,31 @@ def train():
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
 
+        # evaluation
+        if epoch  % args.eval_epoch == 0:
+            model.trainable = False
+            model.set_grid(val_size)
+            model.eval()
+
+            # evaluate
+            evaluator.evaluate(model)
+
+            # convert to training mode.
+            model.trainable = True
+            model.set_grid(train_size)
+            model.train()
+
+            cur_map = evaluator.map
+            if cur_map > best_map:
+                # update best-map
+                best_map = cur_map
+                # save model
+                print('Saving state, epoch:', epoch + 1)
+                weight_name = '{}_epoch_{}_{:.1f}.pth'.format(args.version, epoch + 1, best_map*100)
+                checkpoint_path = os.path.join(path_to_save, weight_name)
+                torch.save(model.state_dict(), checkpoint_path)                      
+
+
         # 使用阶梯学习率衰减策略
         if epoch in lr_epoch:
             tmp_lr = tmp_lr * 0.1
@@ -264,8 +289,7 @@ def build_dataset(args, device, train_size, val_size):
             data_root=data_root,
             img_size=val_size,
             device=device,
-            transform=val_transform,
-            labelmap=VOC_CLASSES
+            transform=val_transform
             )
 
     elif args.dataset == 'coco':

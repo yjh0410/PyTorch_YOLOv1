@@ -86,8 +86,8 @@ class myYOLO(nn.Module):
         pred[..., 2:] = torch.exp(pred[..., 2:])
 
         # 将所有bbox的中心带你坐标和宽高换算成x1y1x2y2形式
-        output[..., :2] = pred[..., :2] * self.stride - pred[..., 2] * 0.5
-        output[..., 2:] = pred[..., 2:] * self.stride + pred[..., 2] * 0.5
+        output[..., :2] = pred[..., :2] * self.stride - pred[..., 2:] * 0.5
+        output[..., 2:] = pred[..., 2:] * self.stride + pred[..., 2:] * 0.5
         
         return output
 
@@ -133,8 +133,8 @@ class myYOLO(nn.Module):
         scores: (HxW, num_classes), bsize = 1
         """
 
-        cls_inds = np.argmax(scores, axis=1)
-        scores = scores[(np.arange(scores.shape[0]), cls_inds)]
+        labels = np.argmax(scores, axis=1)
+        scores = scores[(np.arange(scores.shape[0]), labels)]
         
         # threshold
         keep = np.where(scores >= self.conf_thresh)
