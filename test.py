@@ -140,7 +140,7 @@ if __name__ == '__main__':
     model = build_yolo(args, device, input_size, num_classes, trainable=True)
 
     # 加载已训练好的模型权重
-    model = load_weight(model, args.trained_model)
+    model = load_weight(model, args.weight)
     model.to(device).eval()
     print('Finished loading model!')
 
