@@ -39,6 +39,18 @@ class myYOLO(nn.Module):
         self.pred = nn.Conv2d(512, 1 + self.num_classes + 4, 1)
     
 
+        if self.trainable:
+            self.init_bias()
+
+
+    def init_bias(self):
+        # init bias
+        init_prob = 0.01
+        bias_value = -torch.log(torch.tensor((1. - init_prob) / init_prob))
+        nn.init.constant_(self.pred.bias[..., :1], bias_value)
+        nn.init.constant_(self.pred.bias[..., 1:1+self.num_classes], bias_value)
+
+
     def create_grid(self, input_size):
         """ 
             用于生成G矩阵，其中每个元素都是特征图上的像素坐标。
