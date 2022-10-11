@@ -184,24 +184,6 @@ def train():
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
 
-        # evaluation
-        if epoch  % args.eval_epoch == 0:
-            model.trainable = False
-            model.set_grid(val_size)
-            model.eval()
-
-            # evaluate
-            evaluator.evaluate(model)
-
-            # convert to training mode.
-            model.trainable = True
-            model.set_grid(train_size)
-            model.train()
-
-            print('Saving state, epoch:', epoch + 1)
-            checkpoint = os.path.join(path_to_save, args.version + '_' + repr(epoch + 1) + '.pth')
-            torch.save(model.state_dict(), checkpoint)  
-
         # 使用阶梯学习率衰减策略
         if epoch in cfg['lr_epoch']:
             tmp_lr = tmp_lr * 0.1
