@@ -37,29 +37,47 @@ parser.add_argument('--cuda', action='store_true', default=False,
 args = parser.parse_args()
 
 
-def vis(img, bboxes, scores, cls_inds, thresh, class_colors, class_names, class_indexs=None, dataset='voc'):
-    if dataset == 'voc':
-        for i, box in enumerate(bboxes):
-            cls_indx = cls_inds[i]
-            xmin, ymin, xmax, ymax = box
-            if scores[i] > thresh:
-                cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), class_colors[int(cls_indx)], 1)
-                cv2.rectangle(img, (int(xmin), int(abs(ymin)-20)), (int(xmax), int(ymin)), class_colors[int(cls_indx)], -1)
-                mess = '%s' % (class_names[int(cls_indx)])
-                cv2.putText(img, mess, (int(xmin), int(ymin-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 1)
+def plot_bbox_labels(img, bbox, label=None, cls_color=None, text_scale=0.4):
+    x1, y1, x2, y2 = bbox
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+    t_size = cv2.getTextSize(label, 0, fontScale=1, thickness=2)[0]
+    # plot bbox
+    cv2.rectangle(img, (x1, y1), (x2, y2), cls_color, 2)
+    
+    if label is not None:
+        # plot title bbox
+        cv2.rectangle(img, (x1, y1-t_size[1]), (int(x1 + t_size[0] * text_scale), y1), cls_color, -1)
+        # put the test on the title bbox
+        cv2.putText(img, label, (int(x1), int(y1 - 5)), 0, text_scale, (0, 0, 0), 1, lineType=cv2.LINE_AA)
 
-    elif dataset == 'coco-val' and class_indexs is not None:
-        for i, box in enumerate(bboxes):
-            cls_indx = cls_inds[i]
-            xmin, ymin, xmax, ymax = box
-            if scores[i] > thresh:
-                cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), class_colors[int(cls_indx)], 1)
-                cv2.rectangle(img, (int(xmin), int(abs(ymin)-20)), (int(xmax), int(ymin)), class_colors[int(cls_indx)], -1)
-                cls_id = class_indexs[int(cls_indx)]
-                cls_name = class_names[cls_id]
-                # mess = '%s: %.3f' % (cls_name, scores[i])
-                mess = '%s' % (cls_name)
-                cv2.putText(img, mess, (int(xmin), int(ymin-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 1)
+    return img
+
+
+def visualize(img, 
+              bboxes, 
+              scores, 
+              labels, 
+              vis_thresh, 
+              class_colors, 
+              class_names, 
+              class_indexs=None, 
+              dataset_name='voc'):
+    ts = 0.4
+    for i, bbox in enumerate(bboxes):
+        if scores[i] > vis_thresh:
+            cls_id = int(labels[i])
+            if dataset_name == 'coco':
+                cls_color = class_colors[cls_id]
+                cls_id = class_indexs[cls_id]
+            else:
+                cls_color = class_colors[cls_id]
+                
+            if len(class_names) > 1:
+                mess = '%s: %.2f' % (class_names[cls_id], scores[i])
+            else:
+                cls_color = [255, 0, 0]
+                mess = None
+            img = plot_bbox_labels(img, bbox, mess, cls_color, text_scale=ts)
 
     return img
         
@@ -77,7 +95,7 @@ def test(net, device, testset, transform, thresh, class_colors=None, class_names
 
         t0 = time.time()
         # 前向推理
-        bboxes, scores, cls_inds = net(x)
+        bboxes, scores, labels = net(x)
         print("detection time used ", time.time() - t0, "s")
         
         # 将预测的输出映射到原图的尺寸上去
@@ -85,11 +103,9 @@ def test(net, device, testset, transform, thresh, class_colors=None, class_names
         bboxes *= scale
 
         # 可视化检测结果
-        img_processed = vis(img, bboxes, scores, cls_inds, thresh, class_colors, class_names, class_indexs, dataset)
+        img_processed = visualize(img, bboxes, scores, labels, thresh, class_colors, class_names, class_indexs, dataset)
         cv2.imshow('detection', img_processed)
         cv2.waitKey(0)
-        # print('Saving the' + str(index) + '-th image ...')
-        # cv2.imwrite('test_images/' + args.dataset+ '3/' + str(index).zfill(6) +'.jpg', img)
 
 
 if __name__ == '__main__':
