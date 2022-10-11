@@ -1,5 +1,3 @@
-import torch
-from torchvision import transforms
 import cv2
 import numpy as np
 import types
@@ -51,17 +49,6 @@ class Compose(object):
         for t in self.transforms:
             img, boxes, labels = t(img, boxes, labels)
         return img, boxes, labels
-
-
-class Lambda(object):
-    """Applies a lambda as a transform."""
-
-    def __init__(self, lambd):
-        assert isinstance(lambd, types.LambdaType)
-        self.lambd = lambd
-
-    def __call__(self, img, boxes=None, labels=None):
-        return self.lambd(img, boxes, labels)
 
 
 class ConvertFromInts(object):
@@ -198,7 +185,6 @@ class RandomBrightness(object):
         return image, boxes, labels
 
 
-# RandomCrop
 class RandomSampleCrop(object):
     """Crop
     Arguments:
@@ -304,7 +290,6 @@ class RandomSampleCrop(object):
                 return current_image, current_boxes, current_labels
 
 
-# Scale
 class Expand(object):
     def __init__(self, mean):
         self.mean = mean
@@ -333,7 +318,6 @@ class Expand(object):
         return image, boxes, labels
 
 
-# RandomHFlip
 class RandomMirror(object):
     def __call__(self, image, boxes, classes):
         _, width, _ = image.shape
@@ -414,46 +398,18 @@ class Augmentation(object):
         return self.augment(img, boxes, labels)
 
 
-if __name__ == '__main__':
-    import cv2
-    import numpy as np
+class BaseTransform:
+    def __init__(self, size, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
+        self.size = size
+        self.mean = np.array(mean, dtype=np.float32)
+        self.std = np.array(std, dtype=np.float32)
 
-    # 为了方便展示，均值设为0， 方差设为1
-    size = 416
-    transform = Augmentation(size=size, 
-                                mean=(0, 0, 0),
-                                std=(1, 1, 1)
-                                )
-    # 读取图片, 图片的尺寸是 640x640 的
-    img = cv2.imread('-1.jpg')
+    def __call__(self, image, boxes=None, labels=None):
+        # resize
+        image = cv2.resize(image, (self.size, self.size)).astype(np.float32)
+        # normalize
+        image /= 255.
+        image -= self.mean
+        image /= self.std
 
-    # 标签。注意，这个标签的边界框坐标已经归一化了
-    gt = np.array([[0.28, 0.14714715, 0.998, 0.98798799, 6.]])
-
-    # 数据增强
-    img_t, boxes, labels = transform(img=img, boxes=gt[:, :4], labels=gt[:, 4:])
-
-    # 将增强后的图片改为uint8类型，以便可视化
-    img_t = (img_t * 255.).astype(np.uint8)
-    gt_t = np.concatenate([boxes, labels], axis=1)
-
-    # 可视化原始标签
-    x1, y1, x2, y2, cls_id = gt[0]
-    x1 *= 640
-    y1 *= 640
-    x2 *= 640
-    y2 *= 640
-    img = cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-    cv2.imshow('original image', img)
-    cv2.waitKey(0)
-
-    # 可视化增强后的标签
-    x1, y1, x2, y2, cls_id = gt_t[0]
-    x1 *= size
-    y1 *= size
-    x2 *= size
-    y2 *= size
-    img_t = cv2.rectangle(img_t, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-    cv2.imshow('augmentation image', img_t)
-    cv2.waitKey(0)
-    
+        return image, boxes, labels

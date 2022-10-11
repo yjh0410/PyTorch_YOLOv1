@@ -6,17 +6,12 @@ https://github.com/fmassa/vision/blob/voc_dataset/torchvision/datasets/voc.py
 Updated by: Ellis Brown, Max deGroot
 """
 import os.path as osp
-import sys
 import torch
 import torch.utils.data as data
 import cv2
 import numpy as np
-import random
+import xml.etree.ElementTree as ET
 
-if sys.version_info[0] == 2:
-    import xml.etree.cElementTree as ET
-else:
-    import xml.etree.ElementTree as ET
 
 VOC_CLASSES = (  # always index 0
     'aeroplane', 'bicycle', 'bird', 'boat',
@@ -24,10 +19,6 @@ VOC_CLASSES = (  # always index 0
     'cow', 'diningtable', 'dog', 'horse',
     'motorbike', 'person', 'pottedplant',
     'sheep', 'sofa', 'train', 'tvmonitor')
-
-
-# VOC数据集的目录，以下是笔者的目录。读者请根据自己的电脑来进行修改
-VOC_ROOT = '/mnt/share/ssd2/dataset/VOCdevkit/'
 
 
 class VOCAnnotationTransform(object):
@@ -96,7 +87,9 @@ class VOCDetection(data.Dataset):
             (default: 'VOC2007')
     """
 
-    def __init__(self, root, img_size=None,
+    def __init__(self, 
+                 root,
+                 img_size=None,
                  image_sets=[('2007', 'trainval'), ('2012', 'trainval')],
                  transform=None, 
                  target_transform=VOCAnnotationTransform(),
@@ -188,37 +181,42 @@ class VOCDetection(data.Dataset):
 
 
 if __name__ == "__main__":
-    def base_transform(image, size, mean):
-        x = cv2.resize(image, (size[1], size[0])).astype(np.float32)
-        x -= mean
-        x = x.astype(np.float32)
-        return x
-
-    class BaseTransform:
-        def __init__(self, size, mean):
-            self.size = size
-            self.mean = np.array(mean, dtype=np.float32)
-
-        def __call__(self, image, boxes=None, labels=None):
-            return base_transform(image, self.size, self.mean), boxes, labels
+    from transform import Augmentation, BaseTransform
 
     img_size = 640
+    pixel_mean = (0.406, 0.456, 0.485)  # BGR
+    pixel_std = (0.225, 0.224, 0.229)   # BGR
+    data_root = 'D:\\python_work\\object-detection\\dataset\\VOCdevkit'
+    transform = Augmentation(img_size, pixel_mean, pixel_std)
+    transform = BaseTransform(img_size, pixel_mean, pixel_std)
+
     # dataset
-    dataset = VOCDetection(VOC_ROOT, img_size, [('2007', 'trainval')],
-                            BaseTransform([img_size, img_size], (0, 0, 0)),
-                            VOCAnnotationTransform(), mosaic=True)
+    dataset = VOCDetection(
+        root=data_root,
+        img_size=img_size, 
+        image_sets=[('2007', 'trainval')],
+        transform=transform
+        )
+
     for i in range(1000):
         im, gt, h, w = dataset.pull_item(i)
-        img = im.permute(1,2,0).numpy()[:, :, (2, 1, 0)].astype(np.uint8)
-        cv2.imwrite('-1.jpg', img)
-        img = cv2.imread('-1.jpg')
 
+        # to numpy
+        image = im.permute(1, 2, 0).numpy()
+        # to BGR
+        image = image[..., (2, 1, 0)]
+        # denormalize
+        image = (image * pixel_std + pixel_mean) * 255
+        # to 
+        image = image.astype(np.uint8).copy()
+
+        # draw bbox
         for box in gt:
             xmin, ymin, xmax, ymax, _ = box
             xmin *= img_size
             ymin *= img_size
             xmax *= img_size
             ymax *= img_size
-            img = cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0,0,255), 2)
-        cv2.imshow('gt', img)
+            image = cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0,0,255), 2)
+        cv2.imshow('gt', image)
         cv2.waitKey(0)

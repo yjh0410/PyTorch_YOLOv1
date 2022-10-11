@@ -1,10 +1,14 @@
 import torch
 import torch.nn as nn
-from utils import Conv, SPP
-from backbone import build_resnet
 import numpy as np
+
+from utils.modules import Conv, SPP
+from backbone import build_resnet
+
 import tools
 
+
+# YOLO
 class myYOLO(nn.Module):
     def __init__(self, device, input_size=None, num_classes=20, trainable=False, conf_thresh=0.01, nms_thresh=0.5):
         super(myYOLO, self).__init__()

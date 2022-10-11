@@ -1,24 +1,12 @@
-"""Adapted from:
-    @longcw faster_rcnn_pytorch: https://github.com/longcw/faster_rcnn_pytorch
-    @rbgirshick py-faster-rcnn https://github.com/rbgirshick/py-faster-rcnn
-    Licensed under The MIT License [see LICENSE for details]
-"""
-
 import torch
-import torch.nn as nn
-import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
-from data import VOCDetection
-import sys
+from data.voc0712 import VOCDetection
 import os
 import time
 import numpy as np
 import pickle
 
-if sys.version_info[0] == 2:
-    import xml.etree.cElementTree as ET
-else:
-    import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET
 
 
 class VOCAPIEvaluator():
@@ -64,13 +52,13 @@ class VOCAPIEvaluator():
             x = Variable(im.unsqueeze(0)).to(self.device)
             t0 = time.time()
             # forward
-            bboxes, scores, cls_inds = net(x)
+            bboxes, scores, labels = net(x)
             detect_time = time.time() - t0
             scale = np.array([[w, h, w, h]])
             bboxes *= scale
 
             for j in range(len(self.labelmap)):
-                inds = np.where(cls_inds == j)[0]
+                inds = np.where(labels == j)[0]
                 if len(inds) == 0:
                     self.all_boxes[j][i] = np.empty([0, 5], dtype=np.float32)
                     continue

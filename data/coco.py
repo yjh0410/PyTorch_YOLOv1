@@ -28,9 +28,6 @@ coco_class_index = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 1
                     46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67,
                     70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
 
-# COCO数据集的目录，以下是笔者自己的目录，读者请更具自己的电脑进行修改
-coco_root = '/mnt/share/ssd2/dataset/COCO/'
-
 
 class COCODataset(Dataset):
     """
@@ -38,18 +35,16 @@ class COCODataset(Dataset):
     """
     def __init__(self, data_dir='COCO', 
                  json_file='instances_train2017.json',
-                 name='train2017', 
+                 image_set='train2017', 
                  img_size=None,
                  transform=None, 
-                 min_size=1, 
-                 debug=False
                  ):
         """
         COCO dataset initialization. Annotation data are read into memory by COCO API.
         Args:
             data_dir (str): dataset root directory
-            json_file (str): COCO json file name
-            name (str): COCO data name (e.g. 'train2017' or 'val2017')
+            json_file (str): COCO json file image_set
+            image_set (str): COCO data image_set (e.g. 'train2017' or 'val2017')
             img_size (int): target image size after pre-processing
             min_size (int): bounding boxes smaller than this are ignored
             debug (bool): if True, only one data id is selected from the dataset
@@ -58,14 +53,10 @@ class COCODataset(Dataset):
         self.json_file = json_file
         self.coco = COCO(self.data_dir+'annotations/'+self.json_file)
         self.ids = self.coco.getImgIds()
-        if debug:
-            self.ids = self.ids[1:2]
-            print("debug mode...", self.ids)
         self.class_ids = sorted(self.coco.getCatIds())
-        self.name = name
+        self.image_set = image_set
         self.max_labels = 50
         self.img_size = img_size
-        self.min_size = min_size
         self.transform = transform
 
 
@@ -75,7 +66,7 @@ class COCODataset(Dataset):
 
     def pull_image(self, index):
         id_ = self.ids[index]
-        img_file = os.path.join(self.data_dir, self.name,
+        img_file = os.path.join(self.data_dir, self.image_set,
                                 '{:012}'.format(id_) + '.jpg')
         img = cv2.imread(img_file)
 
@@ -110,7 +101,7 @@ class COCODataset(Dataset):
         annotations = self.coco.loadAnns(anno_ids)
 
         # load image and preprocess
-        img_file = os.path.join(self.data_dir, self.name,
+        img_file = os.path.join(self.data_dir, self.image_set,
                                 '{:012}'.format(id_) + '.jpg')
         img = cv2.imread(img_file)
         
@@ -157,43 +148,43 @@ class COCODataset(Dataset):
 
         return torch.from_numpy(img).permute(2, 0, 1), target, height, width
 
+
 if __name__ == "__main__":
-    def base_transform(image, size, mean):
-        x = cv2.resize(image, (size[1], size[0])).astype(np.float32)
-        x -= mean
-        x = x.astype(np.float32)
-        return x
+    from transform import Augmentation, BaseTransform
 
-    class BaseTransform:
-        def __init__(self, size, mean):
-            self.size = size
-            self.mean = np.array(mean, dtype=np.float32)
-
-        def __call__(self, image, boxes=None, labels=None):
-            return base_transform(image, self.size, self.mean), boxes, labels
+    img_size = 640
+    pixel_mean = (0.406, 0.456, 0.485)  # BGR
+    pixel_std = (0.225, 0.224, 0.229)   # BGR
+    data_root = '/mnt/share/ssd2/dataset/COCO'
+    transform = Augmentation(img_size, pixel_mean, pixel_std)
+    transform = BaseTransform(img_size, pixel_mean, pixel_std)
 
     img_size = 640
     dataset = COCODataset(
-                data_dir='/home/k545/object-detection/dataset/COCO/',
+                data_dir=data_root,
                 img_size=img_size,
-                transform=BaseTransform([img_size, img_size], (0, 0, 0)),
-                debug=False,
-                mosaic=True)
+                transform=transform
+                )
     
     for i in range(1000):
         im, gt, h, w = dataset.pull_item(i)
-        img = im.permute(1,2,0).numpy()[:, :, (2, 1, 0)].astype(np.uint8)
-        print(img.shape)
-        cv2.imwrite('-1.jpg', img)
-        img = cv2.imread('-1.jpg')
 
+        # to numpy
+        image = im.permute(1, 2, 0).numpy()
+        # to BGR
+        image = image[..., (2, 1, 0)]
+        # denormalize
+        image = (image * pixel_std + pixel_mean) * 255
+        # to 
+        image = image.astype(np.uint8).copy()
+
+        # draw bbox
         for box in gt:
             xmin, ymin, xmax, ymax, _ = box
             xmin *= img_size
             ymin *= img_size
             xmax *= img_size
             ymax *= img_size
-            img = cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0,0,255), 2)
-        cv2.imshow('gt', img)
-        cv2.imwrite(str(i)+'.jpg', img)
+            image = cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0,0,255), 2)
+        cv2.imshow('gt', image)
         cv2.waitKey(0)

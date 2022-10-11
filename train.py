@@ -4,32 +4,41 @@ import os
 import random
 import argparse
 import time
-import math
-import numpy as np
 
 import torch
 import torch.optim as optim
 
-from data import *
-import tools
+from data.coco import COCODataset
+from data.voc0712 import VOCDetection, VOC_CLASSES
+from data.transform import Augmentation, BaseTransform
 
-from utils.augmentations import Augmentation
-from utils.cocoapi_evaluator import COCOAPIEvaluator
-from utils.vocapi_evaluator import VOCAPIEvaluator
+import tools
+from utils.misc import detection_collate
+from evaluator.cocoapi_evaluator import COCOAPIEvaluator
+from evaluator.vocapi_evaluator import VOCAPIEvaluator
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='YOLO Detection')
+    # 基本参数
+    parser.add_argument('--cuda', action='store_true', default=False,
+                        help='use cuda.')
+    parser.add_argument('--tfboard', action='store_true', default=False,
+                        help='use tensorboard')
+    parser.add_argument('--eval_epoch', type=int,
+                            default=10, help='interval between evaluations')
+    parser.add_argument('--save_folder', default='weights/', type=str, 
+                        help='Gamma update for SGD')
+    parser.add_argument('--num_workers', default=8, type=int, 
+                        help='Number of workers used in dataloading')
+
+    # 模型参数
     parser.add_argument('-v', '--version', default='yolo',
                         help='yolo')
-    parser.add_argument('-d', '--dataset', default='voc',
-                        help='voc or coco')
-    parser.add_argument('-ms', '--multi_scale', action='store_true', default=False,
-                        help='use multi-scale trick')                  
+
+    # 训练配置
     parser.add_argument('--batch_size', default=32, type=int, 
                         help='Batch size for training')
-    parser.add_argument('--lr', default=1e-3, type=float, 
-                        help='initial learning rate')
     parser.add_argument('-no_wp', '--no_warm_up', action='store_true', default=False,
                         help='yes or no to choose using warmup strategy to train')
     parser.add_argument('--wp_epoch', type=int, default=1,
@@ -38,24 +47,28 @@ def parse_args():
                         help='start epoch to train')
     parser.add_argument('-r', '--resume', default=None, type=str, 
                         help='keep training')
+    parser.add_argument('-ms', '--multi_scale', action='store_true', default=False,
+                        help='use multi-scale trick')                  
+    parser.add_argument('--max_epoch', type=int, default=150,
+                        help='The upper bound of warm-up')
+    parser.add_argument('--lr_epoch', nargs='+', default=[90, 120], type=int,
+                        help='lr epoch to decay')
+
+    # 优化器参数
+    parser.add_argument('--lr', default=1e-3, type=float, 
+                        help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, 
                         help='Momentum value for optim')
     parser.add_argument('--weight_decay', default=5e-4, type=float, 
                         help='Weight decay for SGD')
     parser.add_argument('--gamma', default=0.1, type=float, 
                         help='Gamma update for SGD')
-    parser.add_argument('--num_workers', default=8, type=int, 
-                        help='Number of workers used in dataloading')
-    parser.add_argument('--eval_epoch', type=int,
-                            default=10, help='interval between evaluations')
-    parser.add_argument('--cuda', action='store_true', default=False,
-                        help='use cuda.')
-    parser.add_argument('--tfboard', action='store_true', default=False,
-                        help='use tensorboard')
-    parser.add_argument('--debug', action='store_true', default=False,
-                        help='debug mode where only one image is trained')
-    parser.add_argument('--save_folder', default='weights/', type=str, 
-                        help='Gamma update for SGD')
+
+    # 数据集参数
+    parser.add_argument('-d', '--dataset', default='voc',
+                        help='voc or coco')
+    parser.add_argument('--root', default='/mnt/share/ssd2/dataset',
+                        help='data root')
 
     return parser.parse_args()
 
@@ -84,59 +97,11 @@ def train():
         train_size = 416
         val_size = 416
 
-    cfg = train_cfg
-
     # 构建dataset类和dataloader类
-    if args.dataset == 'voc':
-        # 加载voc数据集
-        data_dir = VOC_ROOT
-        num_classes = 20
-        dataset = VOCDetection(root=data_dir, 
-                                transform=Augmentation(train_size)
-                                )
-
-        evaluator = VOCAPIEvaluator(data_root=data_dir,
-                                    img_size=val_size,
-                                    device=device,
-                                    transform=BaseTransform(val_size),
-                                    labelmap=VOC_CLASSES
-                                    )
-
-    elif args.dataset == 'coco':
-        # 加载COCO数据集
-        data_dir = coco_root
-        num_classes = 80
-        dataset = COCODataset(
-                    data_dir=data_dir,
-                    img_size=train_size,
-                    transform=Augmentation(train_size),
-                    debug=args.debug
-                    )
-
-        evaluator = COCOAPIEvaluator(
-                        data_dir=data_dir,
-                        img_size=val_size,
-                        device=device,
-                        transform=BaseTransform(val_size)
-                        )
+    dataset, num_classes, evaluator = build_dataset(args, device, train_size, val_size)
     
-    else:
-        print('unknow dataset !! Only support voc and coco !!')
-        exit(0)
-    
-    print('Training model on:', dataset.name)
-    print('The dataset size:', len(dataset))
-    print("----------------------------------------------------------")
-
-    # dataloader类
-    dataloader = torch.utils.data.DataLoader(
-                    dataset, 
-                    batch_size=args.batch_size, 
-                    shuffle=True, 
-                    collate_fn=detection_collate,
-                    num_workers=args.num_workers,
-                    pin_memory=True
-                    )
+    # 构建dataloader类
+    dataloader = build_dataloader(args, dataset)
 
     # 构建我们的模型
     if args.version == 'yolo':
@@ -175,15 +140,17 @@ def train():
                             weight_decay=args.weight_decay
                             )
 
-    max_epoch = cfg['max_epoch']                  # 最大训练轮次
+    max_epoch = args.max_epoch                 # 最大训练轮次
+    lr_epoch = args.lr_epoch
     epoch_size = len(dataset) // args.batch_size  # 每一训练轮次的迭代次数
 
     # 开始训练
+    best_map = -1.
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
 
         # 使用阶梯学习率衰减策略
-        if epoch in cfg['lr_epoch']:
+        if epoch in lr_epoch:
             tmp_lr = tmp_lr * 0.1
             set_lr(optimizer, tmp_lr)
     
@@ -261,14 +228,86 @@ def train():
             model.set_grid(train_size)
             model.train()
 
-            print('Saving state, epoch:', epoch + 1)
-            checkpoint = os.path.join(path_to_save, args.version + '_' + repr(epoch + 1) + '.pth')
-            torch.save(model.state_dict(), checkpoint)  
+            cur_map = evaluator.map
+            if cur_map > best_map:
+                # update best-map
+                best_map = cur_map
+                # save model
+                print('Saving state, epoch:', epoch + 1)
+                weight_name = '{}_epoch_{}_{:.1f}.pth'.format(args.version, epoch + 1, best_map*100)
+                checkpoint_path = os.path.join(path_to_save, weight_name)
+                torch.save(model.state_dict(), checkpoint_path)                      
 
 
 def set_lr(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+
+def build_dataset(args, device, train_size, val_size):
+    pixel_mean = (0.406, 0.456, 0.485)  # BGR
+    pixel_std = (0.225, 0.224, 0.229)   # BGR
+    train_transform = Augmentation(train_size, pixel_mean, pixel_std)
+    val_transform = BaseTransform(val_size, pixel_mean, pixel_std)
+    
+    # 构建dataset类和dataloader类
+    if args.dataset == 'voc':
+        data_root = os.path.join(args.root, 'VOCdevkit')
+        # 加载voc数据集
+        num_classes = 20
+        dataset = VOCDetection(
+            root=data_root,
+            transform=train_transform
+            )
+
+        evaluator = VOCAPIEvaluator(
+            data_root=data_root,
+            img_size=val_size,
+            device=device,
+            transform=val_transform,
+            labelmap=VOC_CLASSES
+            )
+
+    elif args.dataset == 'coco':
+        # 加载COCO数据集
+        data_root = os.path.join(args.root, 'COCO')
+        num_classes = 80
+        dataset = COCODataset(
+            data_dir=data_root,
+            img_size=train_size,
+            transform=train_transform
+            )
+
+        evaluator = COCOAPIEvaluator(
+            data_dir=data_root,
+            img_size=val_size,
+            device=device,
+            transform=val_transform
+            )
+    
+    else:
+        print('unknow dataset !! Only support voc and coco !!')
+        exit(0)
+
+    print('Training model on:', dataset.name)
+    print('The dataset size:', len(dataset))
+    print("----------------------------------------------------------")
+
+
+    return dataset, num_classes, evaluator
+
+
+def build_dataloader(args, dataset):
+    dataloader = torch.utils.data.DataLoader(
+                    dataset, 
+                    batch_size=args.batch_size, 
+                    shuffle=True, 
+                    collate_fn=detection_collate,
+                    num_workers=args.num_workers,
+                    pin_memory=True
+                    )
+    
+    return dataloader
 
 
 if __name__ == '__main__':
