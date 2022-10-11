@@ -107,7 +107,7 @@ def train():
     dataloader = build_dataloader(args, dataset)
 
     # 构建我们的模型
-    model = build_yolo(args, device, train_size, num_classes, trainablea=True)
+    model = build_yolo(args, device, train_size, num_classes, trainable=True)
     model.to(device).train()
 
     # 使用 tensorboard 可视化训练过程
@@ -139,7 +139,7 @@ def train():
     epoch_size = len(dataset) // args.batch_size  # 每一训练轮次的迭代次数
 
     # 开始训练
-    best_map = -1.
+    best_map = -10000.
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
 
