@@ -1,7 +1,12 @@
 import torch
 
 
-def load_weight(model, path_to_ckpt):
+def load_weight(model, path_to_ckpt=None):
+    # check
+    if path_to_ckpt is None:
+        print('no weight file ...')
+        return model
+        
     checkpoint_state_dict = torch.load(path_to_ckpt, map_location='cpu')
     # model state dict
     model_state_dict = model.state_dict()
