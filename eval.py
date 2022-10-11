@@ -1,10 +1,16 @@
 import os
 import torch
-import torch.nn as nn
-from data import *
 import argparse
+
+from data.voc0712 import VOCDetection
+from data.coco import COCODataset
+from data.transform import BaseTransform
+
 from evaluator.cocoapi_evaluator import COCOAPIEvaluator
 from evaluator.vocapi_evaluator import VOCAPIEvaluator
+
+from utils.misc import load_weight
+from models.build import build_yolo
 
 
 parser = argparse.ArgumentParser(description='YOLO Detector Evaluation')
@@ -27,41 +33,42 @@ args = parser.parse_args()
 
 
 
-def voc_test(model, device, input_size):
+def voc_test(model, device, input_size, val_transform):
     data_root = os.path.join(args.root, 'VOCdevkit')
-    evaluator = VOCAPIEvaluator(data_root=VOC_ROOT,
-                                img_size=input_size,
-                                device=device,
-                                transform=BaseTransform(input_size),
-                                labelmap=VOC_CLASSES,
-                                display=True
-                                )
+    evaluator = VOCAPIEvaluator(
+        data_root=data_root,
+        img_size=input_size,
+        device=device,
+        transform=val_transform,
+        display=True
+        )
 
     # VOC evaluation
     evaluator.evaluate(model)
 
 
-def coco_test(model, device, input_size, test=False):
+def coco_test(model, device, input_size, val_transform, test=False):
+    data_root = os.path.join(args.root, 'COCO')
     if test:
         # test-dev
         print('test on test-dev 2017')
         evaluator = COCOAPIEvaluator(
-                        data_dir=coco_root,
-                        img_size=input_size,
-                        device=device,
-                        testset=True,
-                        transform=BaseTransform(input_size)
-                        )
+            data_dir=data_root,
+            img_size=input_size,
+            device=device,
+            testset=True,
+            transform=val_transform
+            )
 
     else:
         # eval
         evaluator = COCOAPIEvaluator(
-                        data_dir=coco_root,
-                        img_size=input_size,
-                        device=device,
-                        testset=False,
-                        transform=BaseTransform(input_size)
-                        )
+            data_dir=data_root,
+            img_size=input_size,
+            device=device,
+            testset=False,
+            transform=val_transform
+            )
 
     # COCO evaluation
     evaluator.evaluate(model)
@@ -85,34 +92,24 @@ if __name__ == '__main__':
     # cuda
     if args.cuda:
         print('use cuda')
-        torch.backends.cudnn.benchmark = True
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
 
-    # input size
-    input_size = args.input_size
+    # 构建模型
+    model = build_yolo(args, device, args.input_size, num_classes, trainable=False)
 
-    # build model
-    if args.version == 'yolo':
-        from models.yolo import myYOLO
-        net = myYOLO(device, input_size=input_size, num_classes=num_classes, trainable=False)
-
-    else:
-        print('Unknown Version !!!')
-        exit()
-
-    # load net
-    net.load_state_dict(torch.load(args.weight, map_location='cuda'))
-    net.eval()
-    print('Finished loading model!')
-    net = net.to(device)
+    # 加载已训练好的模型权重
+    model = load_weight(model, args.weight)
+    model.to(device).eval()
     
+    val_transform = BaseTransform(args.input_size)
+
     # evaluation
     with torch.no_grad():
         if args.dataset == 'voc':
-            voc_test(net, device, input_size)
+            voc_test(model, device, args.input_size, val_transform)
         elif args.dataset == 'coco-val':
-            coco_test(net, device, input_size, test=False)
+            coco_test(model, device, args.input_size, val_transform, test=False)
         elif args.dataset == 'coco-test':
-            coco_test(net, device, input_size, test=True)
+            coco_test(model, device, args.input_size, val_transform, test=True)
