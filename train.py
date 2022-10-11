@@ -139,34 +139,9 @@ def train():
     epoch_size = len(dataset) // args.batch_size  # 每一训练轮次的迭代次数
 
     # 开始训练
-    best_map = -10000.
+    best_map = -1.
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
-
-        # evaluation
-        if epoch  % args.eval_epoch == 0:
-            model.trainable = False
-            model.set_grid(val_size)
-            model.eval()
-
-            # evaluate
-            evaluator.evaluate(model)
-
-            # convert to training mode.
-            model.trainable = True
-            model.set_grid(train_size)
-            model.train()
-
-            cur_map = evaluator.map
-            if cur_map > best_map:
-                # update best-map
-                best_map = cur_map
-                # save model
-                print('Saving state, epoch:', epoch + 1)
-                weight_name = '{}_epoch_{}_{:.1f}.pth'.format(args.version, epoch + 1, best_map*100)
-                checkpoint_path = os.path.join(path_to_save, weight_name)
-                torch.save(model.state_dict(), checkpoint_path)                      
-
 
         # 使用阶梯学习率衰减策略
         if epoch in lr_epoch:
