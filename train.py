@@ -183,6 +183,12 @@ def train():
     # 开始训练
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
+        # save model
+        if epoch % 10 == 0:
+            print('Saving state, epoch:', epoch + 1)
+            torch.save(model.state_dict(), os.path.join(path_to_save, 
+                        args.version + '_' + repr(epoch + 1) + '.pth')
+                        )  
 
         # 使用阶梯学习率衰减策略
         if epoch in cfg['lr_epoch']:
@@ -264,7 +270,7 @@ def train():
             model.train()
 
         # save model
-        if (epoch + 1) % 10 == 0:
+        if epoch % 10 == 0:
             print('Saving state, epoch:', epoch + 1)
             torch.save(model.state_dict(), os.path.join(path_to_save, 
                         args.version + '_' + repr(epoch + 1) + '.pth')
