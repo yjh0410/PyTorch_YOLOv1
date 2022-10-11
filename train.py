@@ -9,7 +9,6 @@ import numpy as np
 
 import torch
 import torch.optim as optim
-import torch.backends.cudnn as cudnn
 
 from data import *
 import tools
@@ -72,7 +71,6 @@ def train():
     # 是否使用cuda
     if args.cuda:
         print('use cuda')
-        cudnn.benchmark = True
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
