@@ -14,7 +14,7 @@ import torch.backends.cudnn as cudnn
 from data import *
 import tools
 
-from utils.augmentations import SSDAugmentation
+from utils.augmentations import Augmentation
 from utils.cocoapi_evaluator import COCOAPIEvaluator
 from utils.vocapi_evaluator import VOCAPIEvaluator
 
@@ -94,7 +94,7 @@ def train():
         data_dir = VOC_ROOT
         num_classes = 20
         dataset = VOCDetection(root=data_dir, 
-                                transform=SSDAugmentation(train_size)
+                                transform=Augmentation(train_size)
                                 )
 
         evaluator = VOCAPIEvaluator(data_root=data_dir,
@@ -111,7 +111,7 @@ def train():
         dataset = COCODataset(
                     data_dir=data_dir,
                     img_size=train_size,
-                    transform=SSDAugmentation(train_size),
+                    transform=Augmentation(train_size),
                     debug=args.debug
                     )
 
