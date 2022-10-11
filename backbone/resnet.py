@@ -210,6 +210,25 @@ def resnet152(pretrained=False, **kwargs):
         model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
     return model
 
+
+# build resnet
+def build_resnet(model_name='resnet18', pretrained=False):
+    if model_name == 'resnet18':
+        model = resnet18(pretrained)
+        feat_dim = 512
+    elif model_name == 'resnet34':
+        model = resnet34(pretrained)
+        feat_dim = 512
+    elif model_name == 'resnet50':
+        model = resnet34(pretrained)
+        feat_dim = 2048
+    elif model_name == 'resnet101':
+        model = resnet34(pretrained)
+        feat_dim = 2048
+
+    return model, feat_dim
+
+
 if __name__=='__main__':
     #model = torchvision.models.resnet50()
     print("found ", torch.cuda.device_count(), " GPU(s)")

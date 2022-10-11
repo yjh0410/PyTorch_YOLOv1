@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from utils import Conv, SPP
-from backbone import resnet18
+from backbone import build_resnet
 import numpy as np
 import tools
 
@@ -18,25 +18,24 @@ class myYOLO(nn.Module):
         self.input_size = input_size                   # 输入图像大小
         
         # backbone: resnet18
-        self.backbone = resnet18(pretrained=True)
-        c5 = 512
+        self.backbone, feat_dim = build_resnet('resnet18', pretrained=True)
 
         # neck: SPP
         self.neck = nn.Sequential(
             SPP(),
-            Conv(c5*4, c5, k=1),
+            Conv(feat_dim*4, feat_dim, k=1),
         )
 
         # detection head
         self.convsets = nn.Sequential(
-            Conv(c5, 256, k=1),
-            Conv(256, 512, k=3, p=1),
-            Conv(512, 256, k=1),
-            Conv(256, 512, k=3, p=1)
+            Conv(feat_dim, feat_dim//2, k=1),
+            Conv(feat_dim//2, feat_dim, k=3, p=1),
+            Conv(feat_dim, feat_dim//2, k=1),
+            Conv(feat_dim//2, feat_dim, k=3, p=1)
         )
 
         # pred
-        self.pred = nn.Conv2d(512, 1 + self.num_classes + 4, 1)
+        self.pred = nn.Conv2d(feat_dim, 1 + self.num_classes + 4, 1)
     
 
         if self.trainable:
@@ -79,29 +78,26 @@ class myYOLO(nn.Module):
         """
         output = torch.zeros_like(pred)
         # 得到所有bbox 的中心点坐标和宽高
-        pred[:, :, :2] = torch.sigmoid(pred[:, :, :2]) + self.grid_cell
-        pred[:, :, 2:] = torch.exp(pred[:, :, 2:])
+        pred[..., :2] = torch.sigmoid(pred[..., :2]) + self.grid_cell
+        pred[..., 2:] = torch.exp(pred[..., 2:])
 
         # 将所有bbox的中心带你坐标和宽高换算成x1y1x2y2形式
-        output[:, :, 0] = pred[:, :, 0] * self.stride - pred[:, :, 2] / 2
-        output[:, :, 1] = pred[:, :, 1] * self.stride - pred[:, :, 3] / 2
-        output[:, :, 2] = pred[:, :, 0] * self.stride + pred[:, :, 2] / 2
-        output[:, :, 3] = pred[:, :, 1] * self.stride + pred[:, :, 3] / 2
+        output[..., :2] = pred[..., :2] * self.stride - pred[..., 2] * 0.5
+        output[..., 2:] = pred[..., 2:] * self.stride + pred[..., 2] * 0.5
         
         return output
 
 
-    def nms(self, dets, scores):
+    def nms(self, bboxes, scores):
         """"Pure Python NMS baseline."""
-        x1 = dets[:, 0]  #xmin
-        y1 = dets[:, 1]  #ymin
-        x2 = dets[:, 2]  #xmax
-        y2 = dets[:, 3]  #ymax
+        x1 = bboxes[:, 0]  #xmin
+        y1 = bboxes[:, 1]  #ymin
+        x2 = bboxes[:, 2]  #xmax
+        y2 = bboxes[:, 3]  #ymax
 
         areas = (x2 - x1) * (y2 - y1)
         order = scores.argsort()[::-1]
         
-
         keep = []                                             
         while order.size > 0:
             i = order[0]
@@ -112,15 +108,16 @@ class myYOLO(nn.Module):
             xx2 = np.minimum(x2[i], x2[order[1:]])
             yy2 = np.minimum(y2[i], y2[order[1:]])
             # 计算交集的宽高
-            w = np.maximum(1e-28, xx2 - xx1)
-            h = np.maximum(1e-28, yy2 - yy1)
+            w = np.maximum(1e-10, xx2 - xx1)
+            h = np.maximum(1e-10, yy2 - yy1)
             # 计算交集的面积
             inter = w * h
 
             # 计算交并比
-            ovr = inter / (areas[i] + areas[order[1:]] - inter)
+            iou = inter / (areas[i] + areas[order[1:]] - inter)
+
             # 滤除超过nms阈值的检测框
-            inds = np.where(ovr <= self.nms_thresh)[0]
+            inds = np.where(iou <= self.nms_thresh)[0]
             order = order[inds + 1]
 
         return keep
@@ -139,12 +136,12 @@ class myYOLO(nn.Module):
         keep = np.where(scores >= self.conf_thresh)
         bboxes = bboxes[keep]
         scores = scores[keep]
-        cls_inds = cls_inds[keep]
+        labels = labels[keep]
 
         # NMS
         keep = np.zeros(len(bboxes), dtype=np.int)
         for i in range(self.num_classes):
-            inds = np.where(cls_inds == i)[0]
+            inds = np.where(labels == i)[0]
             if len(inds) == 0:
                 continue
             c_bboxes = bboxes[inds]
@@ -155,43 +152,48 @@ class myYOLO(nn.Module):
         keep = np.where(keep > 0)
         bboxes = bboxes[keep]
         scores = scores[keep]
-        cls_inds = cls_inds[keep]
+        labels = labels[keep]
 
-        return bboxes, scores, cls_inds
+        return bboxes, scores, labels
 
 
     def forward(self, x, target=None):
         # backbone主干网络
-        c5 = self.backbone(x)
+        feat = self.backbone(x)
 
         # neck网络
-        p5 = self.neck(c5)
+        feat = self.neck(feat)
 
         # detection head网络
-        p5 = self.convsets(p5)
+        feat = self.convsets(feat)
 
         # 预测层
-        pred = self.pred(p5)
+        pred = self.pred(feat)
 
         # 对pred 的size做一些view调整，便于后续的处理
-        # [B, C, H, W] -> [B, C, H*W] -> [B, H*W, C]
-        pred = pred.view(p5.size(0), 1 + self.num_classes + 4, -1).permute(0, 2, 1)
+        # [B, C, H, W] -> [B, H, W, C] -> [B, H*W, C]
+        pred = pred.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
 
         # 从pred中分离出objectness预测、类别class预测、bbox的txtytwth预测  
         # [B, H*W, 1]
-        conf_pred = pred[:, :, :1]
+        conf_pred = pred[..., :1]
         # [B, H*W, num_cls]
-        cls_pred = pred[:, :, 1 : 1 + self.num_classes]
+        cls_pred = pred[..., 1:1+self.num_classes]
         # [B, H*W, 4]
-        txtytwth_pred = pred[:, :, 1 + self.num_classes:]
+        txtytwth_pred = pred[..., 1+self.num_classes:]
 
         # train
         if self.trainable:
-            conf_loss, cls_loss, bbox_loss, total_loss = tools.loss(pred_conf=conf_pred, 
-                                                                    pred_cls=cls_pred,
-                                                                    pred_txtytwth=txtytwth_pred,
-                                                                    label=target
-                                                                    )
+            (
+                conf_loss,
+                cls_loss,
+                bbox_loss,
+                total_loss
+            )  = tools.loss(pred_conf=conf_pred, 
+                            pred_cls=cls_pred,
+                            pred_txtytwth=txtytwth_pred,
+                            label=target
+                            )
 
             return conf_loss, cls_loss, bbox_loss, total_loss            
         # test
@@ -211,6 +213,6 @@ class myYOLO(nn.Module):
                 bboxes = bboxes.to('cpu').numpy()
                 
                 # 后处理
-                bboxes, scores, cls_inds = self.postprocess(bboxes, scores)
+                bboxes, scores, labels = self.postprocess(bboxes, scores)
 
-                return bboxes, scores, cls_inds
+                return bboxes, scores, labels
