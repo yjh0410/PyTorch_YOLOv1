@@ -183,12 +183,24 @@ def train():
     # 开始训练
     t0 = time.time()
     for epoch in range(args.start_epoch, max_epoch):
-        # save model
-        if epoch % 10 == 0:
+
+        # evaluation
+        if epoch  % args.eval_epoch == 0:
+            model.trainable = False
+            model.set_grid(val_size)
+            model.eval()
+
+            # evaluate
+            evaluator.evaluate(model)
+
+            # convert to training mode.
+            model.trainable = True
+            model.set_grid(train_size)
+            model.train()
+
             print('Saving state, epoch:', epoch + 1)
-            torch.save(model.state_dict(), os.path.join(path_to_save, 
-                        args.version + '_' + repr(epoch + 1) + '.pth')
-                        )  
+            checkpoint = os.path.join(path_to_save, args.version + '_' + repr(epoch + 1) + '.pth')
+            torch.save(model.state_dict(), checkpoint)  
 
         # 使用阶梯学习率衰减策略
         if epoch in cfg['lr_epoch']:
@@ -256,7 +268,7 @@ def train():
                 t0 = time.time()
 
         # evaluation
-        if (epoch + 1) % args.eval_epoch == 0:
+        if epoch  % args.eval_epoch == 0:
             model.trainable = False
             model.set_grid(val_size)
             model.eval()
@@ -269,12 +281,9 @@ def train():
             model.set_grid(train_size)
             model.train()
 
-        # save model
-        if epoch % 10 == 0:
             print('Saving state, epoch:', epoch + 1)
-            torch.save(model.state_dict(), os.path.join(path_to_save, 
-                        args.version + '_' + repr(epoch + 1) + '.pth')
-                        )  
+            checkpoint = os.path.join(path_to_save, args.version + '_' + repr(epoch + 1) + '.pth')
+            torch.save(model.state_dict(), checkpoint)  
 
 
 def set_lr(optimizer, lr):
