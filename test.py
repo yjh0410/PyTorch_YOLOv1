@@ -137,7 +137,7 @@ if __name__ == '__main__':
                      np.random.randint(255)) for _ in range(num_classes)]
 
     # 构建模型
-    model = build_yolo(args, device, input_size, num_classes, trainable=True)
+    model = build_yolo(args, device, input_size, num_classes, trainable=False)
 
     # 加载已训练好的模型权重
     model = load_weight(model, args.weight)

@@ -7,12 +7,15 @@ from evaluator.vocapi_evaluator import VOCAPIEvaluator
 
 
 parser = argparse.ArgumentParser(description='YOLO Detector Evaluation')
-parser.add_argument('-v', '--version', default='yolo',
-                    help='yolo.')
 parser.add_argument('-d', '--dataset', default='voc',
                     help='voc, coco-val, coco-test.')
-parser.add_argument('--trained_model', type=str,
-                    default='weights_yolo_v2/yolo_v2_72.2.pth', 
+parser.add_argument('--root', default='/mnt/share/ssd2/dataset',
+                    help='data root')
+
+parser.add_argument('-v', '--version', default='yolo',
+                    help='yolo.')
+
+parser.add_argument('--weight', type=str, default=None, 
                     help='Trained state_dict file path to open')
 parser.add_argument('-size', '--input_size', default=416, type=int,
                     help='input_size')
@@ -24,6 +27,7 @@ args = parser.parse_args()
 
 
 def voc_test(model, device, input_size):
+    data_root = os.path.join(args.root, 'VOCdevkit')
     evaluator = VOCAPIEvaluator(data_root=VOC_ROOT,
                                 img_size=input_size,
                                 device=device,
@@ -98,7 +102,7 @@ if __name__ == '__main__':
         exit()
 
     # load net
-    net.load_state_dict(torch.load(args.trained_model, map_location='cuda'))
+    net.load_state_dict(torch.load(args.weight, map_location='cuda'))
     net.eval()
     print('Finished loading model!')
     net = net.to(device)
