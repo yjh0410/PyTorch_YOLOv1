@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from data import *
 import argparse
-from utils.vocapi_evaluator import VOCAPIEvaluator
-from utils.cocoapi_evaluator import COCOAPIEvaluator
+from evaluator.cocoapi_evaluator import COCOAPIEvaluator
+from evaluator.vocapi_evaluator import VOCAPIEvaluator
 
 
 parser = argparse.ArgumentParser(description='YOLO Detector Evaluation')
