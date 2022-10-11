@@ -307,7 +307,7 @@ def build_dataset(args, device, train_size, val_size):
         print('unknow dataset !! Only support voc and coco !!')
         exit(0)
 
-    print('Training model on:', dataset.name)
+    print('Training model on:', args.dataset)
     print('The dataset size:', len(dataset))
     print("----------------------------------------------------------")
 
