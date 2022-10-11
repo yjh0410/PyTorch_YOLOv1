@@ -225,14 +225,14 @@ class RandomSampleCrop(object):
             (None, None),
         )
 
-    def __call__(self, image, boxes=None, labels=None, scale=None, offset=None):
+    def __call__(self, image, boxes=None, labels=None):
         height, width, _ = image.shape
         while True:
             # randomly choose a mode
             sample_id = np.random.randint(len(self.sample_options))
             mode = self.sample_options[sample_id]
             if mode is None:
-                return image, boxes, labels, scale, offset
+                return image, boxes, labels
 
             min_iou, max_iou = mode
             if min_iou is None:
@@ -301,7 +301,7 @@ class RandomSampleCrop(object):
                 # adjust to crop (by substracting crop's left,top)
                 current_boxes[:, 2:] -= rect[:2]
 
-                return current_image, current_boxes, current_labels, scale, offset
+                return current_image, current_boxes, current_labels
 
 
 # Scale
