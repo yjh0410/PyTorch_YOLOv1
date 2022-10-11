@@ -92,6 +92,7 @@ class COCOAPIEvaluator():
                 A = {"image_id": id_, "category_id": label, "bbox": bbox,
                      "score": score} # COCO json format
                 data_dict.append(A)
+            break
 
         annType = ['segm', 'bbox', 'keypoints']
 
