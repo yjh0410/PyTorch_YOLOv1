@@ -29,9 +29,9 @@ https://github.com/yjh0410/PyTorch_YOLO-Family
 
 读者可以从下面的百度网盘链接来下载VOC2007和VOC2012数据集
 
-链接：https://pan.baidu.com/s/1IYlFqRjoet9jCkq1bXyuog 
+链接：https://pan.baidu.com/s/1qClcQXSXjP8FEnsP_RrZjg 
 
-提取码：074w
+提取码：zrcj 
 
 读者会获得 ```VOCdevkit.zip```压缩包, 分别包含 ```VOCdevkit/VOC2007``` 和 ```VOCdevkit/VOC2012```两个文件夹，分别是VOC2007数据集和VOC2012数据集.
 

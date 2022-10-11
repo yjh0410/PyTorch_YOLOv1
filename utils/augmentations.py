@@ -105,6 +105,21 @@ class ToPercentCoords(object):
         return image, boxes, labels
 
 
+class ConvertColor(object):
+    def __init__(self, current='BGR', transform='HSV'):
+        self.transform = transform
+        self.current = current
+
+    def __call__(self, image, boxes=None, labels=None):
+        if self.current == 'BGR' and self.transform == 'HSV':
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        elif self.current == 'HSV' and self.transform == 'BGR':
+            image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+        else:
+            raise NotImplementedError
+        return image, boxes, labels
+
+
 class Resize(object):
     def __init__(self, size=640):
         self.size = size
@@ -155,21 +170,6 @@ class RandomLightingNoise(object):
         return image, boxes, labels
 
 
-class ConvertColor(object):
-    def __init__(self, current='BGR', transform='HSV'):
-        self.transform = transform
-        self.current = current
-
-    def __call__(self, image, boxes=None, labels=None):
-        if self.current == 'BGR' and self.transform == 'HSV':
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        elif self.current == 'HSV' and self.transform == 'BGR':
-            image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
-        else:
-            raise NotImplementedError
-        return image, boxes, labels
-
-
 class RandomContrast(object):
     def __init__(self, lower=0.5, upper=1.5):
         self.lower = lower
@@ -198,16 +198,7 @@ class RandomBrightness(object):
         return image, boxes, labels
 
 
-class ToCV2Image(object):
-    def __call__(self, tensor, boxes=None, labels=None):
-        return tensor.cpu().numpy().astype(np.float32).transpose((1, 2, 0)), boxes, labels
-
-
-class ToTensor(object):
-    def __call__(self, cvimage, boxes=None, labels=None):
-        return torch.from_numpy(cvimage.astype(np.float32)).permute(2, 0, 1), boxes, labels
-
-
+# RandomCrop
 class RandomSampleCrop(object):
     """Crop
     Arguments:
@@ -234,13 +225,14 @@ class RandomSampleCrop(object):
             (None, None),
         )
 
-    def __call__(self, image, boxes=None, labels=None):
+    def __call__(self, image, boxes=None, labels=None, scale=None, offset=None):
         height, width, _ = image.shape
         while True:
             # randomly choose a mode
-            mode = random.choice(self.sample_options)
+            sample_id = np.random.randint(len(self.sample_options))
+            mode = self.sample_options[sample_id]
             if mode is None:
-                return image, boxes, labels
+                return image, boxes, labels, scale, offset
 
             min_iou, max_iou = mode
             if min_iou is None:
@@ -309,9 +301,10 @@ class RandomSampleCrop(object):
                 # adjust to crop (by substracting crop's left,top)
                 current_boxes[:, 2:] -= rect[:2]
 
-                return current_image, current_boxes, current_labels
+                return current_image, current_boxes, current_labels, scale, offset
 
 
+# Scale
 class Expand(object):
     def __init__(self, mean):
         self.mean = mean
@@ -340,6 +333,7 @@ class Expand(object):
         return image, boxes, labels
 
 
+# RandomHFlip
 class RandomMirror(object):
     def __call__(self, image, boxes, classes):
         _, width, _ = image.shape
@@ -387,7 +381,6 @@ class PhotometricDistort(object):
             RandomContrast()
         ]
         self.rand_brightness = RandomBrightness()
-        # self.rand_light_noise = RandomLightingNoise()
 
     def __call__(self, image, boxes, labels):
         im = image.copy()
@@ -398,10 +391,9 @@ class PhotometricDistort(object):
             distort = Compose(self.pd[1:])
         im, boxes, labels = distort(im, boxes, labels)
         return im, boxes, labels
-        # return self.rand_light_noise(im, boxes, labels)
 
 
-class SSDAugmentation(object):
+class Augmentation(object):
     def __init__(self, size=640, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
         self.mean = mean
         self.size = size
@@ -428,7 +420,7 @@ if __name__ == '__main__':
 
     # 为了方便展示，均值设为0， 方差设为1
     size = 416
-    transform = SSDAugmentation(size=size, 
+    transform = Augmentation(size=size, 
                                 mean=(0, 0, 0),
                                 std=(1, 1, 1)
                                 )
