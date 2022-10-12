@@ -8,12 +8,14 @@ import time
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from copy import deepcopy
 
 from data.coco import COCODataset
 from data.voc0712 import VOCDetection
 from data.transform import Augmentation, BaseTransform
 
 from utils.misc import detection_collate
+from utils.com_paras_flops import FLOPs_and_Params
 from evaluator.cocoapi_evaluator import COCOAPIEvaluator
 from evaluator.vocapi_evaluator import VOCAPIEvaluator
 
@@ -109,6 +111,15 @@ def train():
     # 构建我们的模型
     model = build_yolo(args, device, train_size, num_classes, trainable=True)
     model.to(device).train()
+
+    # compute FLOPs and Params
+    model_copy = deepcopy(model)
+    model_copy.trainable = False
+    model_copy.eval()
+    FLOPs_and_Params(model=model_copy, 
+                        img_size=val_size, 
+                        device=device)
+    del model_copy
 
     # 使用 tensorboard 可视化训练过程
     if args.tfboard:

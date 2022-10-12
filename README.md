@@ -62,12 +62,12 @@ At least, please make sure your torch is version 1.x.
 
 VOC2007 test 测试集
 
-| Model             |  Input size    |   mAP   | Weight|
-|-------------------|----------------|---------|-------|
-| YOLOv1            |  320×320       |   64.6  |   -   |
-| YOLOv1            |  416×416       |   69.6  |   -   |
-| YOLOv1            |  512×512       |   72.2  |   -   |
-| YOLOv1            |  608×608       |   73.3  | [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_69.6.pth) |
+| Model             |  Input size  |   mAP   | Weight |
+|-------------------|--------------|---------|--------|
+| YOLOv1            |  320×320     |   64.6  |    -   |
+| YOLOv1            |  416×416     |   69.6  |    -   |
+| YOLOv1            |  512×512     |   72.2  |    -   |
+| YOLOv1            |  608×608     |   73.3  | [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_69.6.pth) |
 
 
 COCO val 验证集
