@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from utils.modules import Conv, SPP
+from .basic import Conv, SPP
 from backbone import build_resnet
 
 from .loss import compute_loss
@@ -187,13 +187,18 @@ class myYOLO(nn.Module):
         # [B, H*W, 4]
         txtytwth_pred = pred[..., 1+self.num_classes:]
 
-        # 测试时，笔者默认batch是1，因此，我们不需要用batch这个维度，用[0]将其取走。
-        # [B, H*W, 1] -> [H*W, 1]
-        conf_pred = torch.sigmoid(conf_pred)[0]
-        # [B, H*W, 4] -> [H*W, 4], 并做归一化处理
-        bboxes = torch.clamp((self.decode_boxes(txtytwth_pred) / self.input_size)[0], 0., 1.)
-        # [B, H*W, 1] -> [H*W, num_class]，得分=<类别置信度>乘以<objectness置信度>
-        scores = (torch.softmax(cls_pred[0, :, :], dim=1) * conf_pred)
+        # 测试时，笔者默认batch是1，
+        # 因此，我们不需要用batch这个维度，用[0]将其取走。
+        conf_pred = conf_pred[0]            #[H*W, 1]
+        cls_pred = cls_pred[0]              #[H*W, NC]
+        txtytwth_pred = txtytwth_pred[0]    #[H*W, 4]
+
+        # 每个边界框的得分
+        scores = torch.sigmoid(conf_pred) * torch.softmax(cls_pred, dim=-1)
+        
+        # 解算边界框, 并归一化边界框: [H*W*KA, 4]
+        bboxes = self.decode_boxes(txtytwth_pred) / self.input_size
+        bboxes = torch.clamp(bboxes, 0., 1.)
         
         # 将预测放在cpu处理上，以便进行后处理
         scores = scores.to('cpu').numpy()
