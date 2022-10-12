@@ -66,7 +66,7 @@ def visualize(img,
     for i, bbox in enumerate(bboxes):
         if scores[i] > vis_thresh:
             cls_id = int(labels[i])
-            if dataset_name == 'coco':
+            if dataset_name == 'coco-val':
                 cls_color = class_colors[cls_id]
                 cls_id = class_indexs[cls_id]
             else:
