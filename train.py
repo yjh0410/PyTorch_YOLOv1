@@ -147,7 +147,7 @@ def train():
 
     max_epoch = args.max_epoch                 # 最大训练轮次
     lr_epoch = args.lr_epoch
-    epoch_size = len(dataset) // args.batch_size  # 每一训练轮次的迭代次数
+    epoch_size = len(dataloader)  # 每一训练轮次的迭代次数
 
     # 开始训练
     best_map = -1.
@@ -221,7 +221,7 @@ def train():
                 t0 = time.time()
 
         # evaluation
-        if epoch  % args.eval_epoch == 0:
+        if epoch  % args.eval_epoch == 0 or (epoch + 1) == max_epoch:
             model.trainable = False
             model.set_grid(val_size)
             model.eval()
