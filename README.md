@@ -30,9 +30,6 @@ conda activate yolo
 pip install -r requirements.txt 
 ```
 
-We suggest that PyTorch should be higher than 1.9.0 and Torchvision should be higher than 0.10.3. 
-At least, please make sure your torch is version 1.x.
-
 ## 网络结构
 
 - Backbone: ResNet-18
@@ -56,7 +53,17 @@ At least, please make sure your torch is version 1.x.
 
 ### COCO 2017 数据集
 
+* 自己下载
+
 运行 ```sh data/scripts/COCO2017.sh```，将会获得 COCO train2017, val2017, test2017三个数据集.
+
+* 百度网盘下载：
+
+这里，笔者也提供了由笔者下好的COCO数据集的百度网盘链接：
+
+链接：https://pan.baidu.com/s/1XQqeHgNMp8U-ohbEWuT2CA 
+
+提取码：l1e5
 
 ## 实验结果
 
