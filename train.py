@@ -13,12 +13,12 @@ from data.coco import COCODataset
 from data.voc0712 import VOCDetection
 from data.transform import Augmentation, BaseTransform
 
-import tools
 from utils.misc import detection_collate
 from evaluator.cocoapi_evaluator import COCOAPIEvaluator
 from evaluator.vocapi_evaluator import VOCAPIEvaluator
 
 from models.build import build_yolo
+from models.matcher import gt_creator
 
 
 def parse_args():
@@ -170,17 +170,18 @@ def train():
             
             # 制作训练标签
             targets = [label.tolist() for label in targets]
-            targets = tools.gt_creator(input_size=train_size, 
-                                       stride=model.stride, 
-                                       label_lists=targets
-                                       )
+            targets = gt_creator(
+                input_size=train_size,
+                stride=model.stride, 
+                label_lists=targets
+                )
             
             # to device
             images = images.to(device)          
             targets = targets.to(device)
             
             # 前向推理和计算损失
-            conf_loss, cls_loss, bbox_loss, total_loss = model(images, target=targets)
+            conf_loss, cls_loss, bbox_loss, total_loss = model(images, targets=targets)
 
             # 反向传播
             total_loss.backward()        

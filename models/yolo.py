@@ -5,7 +5,7 @@ import numpy as np
 from utils.modules import Conv, SPP
 from backbone import build_resnet
 
-import tools
+from .loss import compute_loss
 
 
 # YOLO
@@ -161,7 +161,8 @@ class myYOLO(nn.Module):
         return bboxes, scores, labels
 
 
-    def forward(self, x, target=None):
+    @torch.no_grad()
+    def inference(self, x):
         # backbone主干网络
         feat = self.backbone(x)
 
@@ -186,37 +187,62 @@ class myYOLO(nn.Module):
         # [B, H*W, 4]
         txtytwth_pred = pred[..., 1+self.num_classes:]
 
-        # train
-        if self.trainable:
+        # 测试时，笔者默认batch是1，因此，我们不需要用batch这个维度，用[0]将其取走。
+        # [B, H*W, 1] -> [H*W, 1]
+        conf_pred = torch.sigmoid(conf_pred)[0]
+        # [B, H*W, 4] -> [H*W, 4], 并做归一化处理
+        bboxes = torch.clamp((self.decode_boxes(txtytwth_pred) / self.input_size)[0], 0., 1.)
+        # [B, H*W, 1] -> [H*W, num_class]，得分=<类别置信度>乘以<objectness置信度>
+        scores = (torch.softmax(cls_pred[0, :, :], dim=1) * conf_pred)
+        
+        # 将预测放在cpu处理上，以便进行后处理
+        scores = scores.to('cpu').numpy()
+        bboxes = bboxes.to('cpu').numpy()
+        
+        # 后处理
+        bboxes, scores, labels = self.postprocess(bboxes, scores)
+
+        return bboxes, scores, labels
+
+
+    def forward(self, x, targets=None):
+        if not self.trainable:
+            return self.inference(x)
+        else:
+            # backbone主干网络
+            feat = self.backbone(x)
+
+            # neck网络
+            feat = self.neck(feat)
+
+            # detection head网络
+            feat = self.convsets(feat)
+
+            # 预测层
+            pred = self.pred(feat)
+
+            # 对pred 的size做一些view调整，便于后续的处理
+            # [B, C, H, W] -> [B, H, W, C] -> [B, H*W, C]
+            pred = pred.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
+
+            # 从pred中分离出objectness预测、类别class预测、bbox的txtytwth预测  
+            # [B, H*W, 1]
+            conf_pred = pred[..., :1]
+            # [B, H*W, num_cls]
+            cls_pred = pred[..., 1:1+self.num_classes]
+            # [B, H*W, 4]
+            txtytwth_pred = pred[..., 1+self.num_classes:]
+
+            # 计算损失
             (
                 conf_loss,
                 cls_loss,
                 bbox_loss,
                 total_loss
-            )  = tools.loss(pred_conf=conf_pred, 
-                            pred_cls=cls_pred,
-                            pred_txtytwth=txtytwth_pred,
-                            label=target
-                            )
+            ) = compute_loss(pred_conf=conf_pred, 
+                             pred_cls=cls_pred,
+                             pred_txtytwth=txtytwth_pred,
+                             targets=targets
+                             )
 
             return conf_loss, cls_loss, bbox_loss, total_loss            
-        # test
-        else:
-            with torch.no_grad():
-                # batch size = 1
-                # 测试时，笔者默认batch是1，因此，我们不需要用batch这个维度，用[0]将其取走。
-                # [B, H*W, 1] -> [H*W, 1]
-                conf_pred = torch.sigmoid(conf_pred)[0]
-                # [B, H*W, 4] -> [H*W, 4], 并做归一化处理
-                bboxes = torch.clamp((self.decode_boxes(txtytwth_pred) / self.input_size)[0], 0., 1.)
-                # [B, H*W, 1] -> [H*W, num_class]，得分=<类别置信度>乘以<objectness置信度>
-                scores = (torch.softmax(cls_pred[0, :, :], dim=1) * conf_pred)
-                
-                # 将预测放在cpu处理上，以便进行后处理
-                scores = scores.to('cpu').numpy()
-                bboxes = bboxes.to('cpu').numpy()
-                
-                # 后处理
-                bboxes, scores, labels = self.postprocess(bboxes, scores)
-
-                return bboxes, scores, labels
