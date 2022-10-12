@@ -51,19 +51,6 @@ pip install -r requirements.txt
 
 读者会获得 ```VOCdevkit.zip```压缩包, 分别包含 ```VOCdevkit/VOC2007``` 和 ```VOCdevkit/VOC2012```两个文件夹，分别是VOC2007数据集和VOC2012数据集.
 
-### COCO 2017 数据集
-
-* 自己下载
-
-运行 ```sh data/scripts/COCO2017.sh```，将会获得 COCO train2017, val2017, test2017三个数据集.
-
-* 百度网盘下载：
-
-这里，笔者也提供了由笔者下好的COCO数据集的百度网盘链接：
-
-链接：https://pan.baidu.com/s/1XQqeHgNMp8U-ohbEWuT2CA 
-
-提取码：l1e5
 
 ## 实验结果
 
@@ -76,15 +63,6 @@ VOC2007 test 测试集
 | YOLOv1            |  512×512     |   72.2  |    -   |
 | YOLOv1            |  608×608     |   73.3  | [github](https://github.com/yjh0410/PyTorch_YOLOv1/releases/download/yolov1_weight/yolo_69.6.pth) |
 
-
-COCO val 验证集
-
-| Model             |  Input size    |   AP    |   AP50    | Weight|
-|-------------------|----------------|---------|-----------|-------|
-| YOLOv1            |  320×320       |   13.7  |   29.6    |   -   |
-| YOLOv1            |  416×416       |   16.4  |   34.7    |   -   |
-| YOLOv1            |  512×512       |   18.1  |   37.9    |   -   |
-| YOLOv1            |  608×608       |   18.6  |   39.0    | [github]() |
 
 大家可以点击表格中的[github]()来下载模型权重文件。
 
