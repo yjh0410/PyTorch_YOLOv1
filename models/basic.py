@@ -24,9 +24,15 @@ class SPP(nn.Module):
         super(SPP, self).__init__()
 
     def forward(self, x):
+        """
+        Input:
+            x: (Tensor) -> [B, C, H, W]
+        Output:
+            y: (Tensor) -> [B, 4C, H, W]
+        """
         x_1 = torch.nn.functional.max_pool2d(x, 5, stride=1, padding=2)
         x_2 = torch.nn.functional.max_pool2d(x, 9, stride=1, padding=4)
         x_3 = torch.nn.functional.max_pool2d(x, 13, stride=1, padding=6)
-        x = torch.cat([x, x_1, x_2, x_3], dim=1)
+        y = torch.cat([x, x_1, x_2, x_3], dim=1)
 
-        return x
+        return y

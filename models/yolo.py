@@ -22,7 +22,7 @@ class myYOLO(nn.Module):
         self.input_size = input_size                   # 输入图像大小
         
         # backbone: resnet18
-        self.backbone, feat_dim = build_resnet('resnet18', pretrained=True)
+        self.backbone, feat_dim = build_resnet('resnet18', pretrained=trainable)
 
         # neck: SPP
         self.neck = nn.Sequential(

@@ -142,17 +142,23 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        C_1 = self.conv1(x)
-        C_1 = self.bn1(C_1)
-        C_1 = self.relu(C_1)
-        C_1 = self.maxpool(C_1)
+        """
+        Input:
+            x: (Tensor) -> [B, C, H, W]
+        Output:
+            c5: (Tensor) -> [B, C, H/32, W/32]
+        """
+        c1 = self.conv1(x)     # [B, C, H/2, W/2]
+        c1 = self.bn1(c1)      # [B, C, H/2, W/2]
+        c1 = self.relu(c1)     # [B, C, H/2, W/2]
+        c2 = self.maxpool(c1)  # [B, C, H/4, W/4]
 
-        C_2 = self.layer1(C_1)
-        C_3 = self.layer2(C_2)
-        C_4 = self.layer3(C_3)
-        C_5 = self.layer4(C_4)
+        c2 = self.layer1(c2)   # [B, C, H/4, W/4]
+        c3 = self.layer2(c2)   # [B, C, H/8, W/8]
+        c4 = self.layer3(c3)   # [B, C, H/16, W/16]
+        c5 = self.layer4(c4)   # [B, C, H/32, W/32]
 
-        return C_5
+        return c5
             
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
