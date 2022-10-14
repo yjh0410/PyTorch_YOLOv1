@@ -58,12 +58,17 @@ class myYOLO(nn.Module):
         """ 
             用于生成G矩阵，其中每个元素都是特征图上的像素坐标。
         """
+        # 输入图像的宽和高
         w, h = input_size, input_size
-        # generate grid cells
+        # 特征图的宽和高
         ws, hs = w // self.stride, h // self.stride
+        # 生成网格的x坐标和y坐标
         grid_y, grid_x = torch.meshgrid([torch.arange(hs), torch.arange(ws)])
+
+        # 将xy两部分的坐标拼起来：[H, W, 2]
         grid_xy = torch.stack([grid_x, grid_y], dim=-1).float()
-        grid_xy = grid_xy.view(1, hs*ws, 2).to(self.device)
+        # [H, W, 2] -> [HW, 2] -> [HW, 2]
+        grid_xy = grid_xy.view(-1, 2).to(self.device)
         
         return grid_xy
 
@@ -129,8 +134,13 @@ class myYOLO(nn.Module):
 
     def postprocess(self, bboxes, scores):
         """
-        bboxes: (HxW, 4), bsize = 1
-        scores: (HxW, num_classes), bsize = 1
+        Input:
+            bboxes: [HxW, 4]
+            scores: [HxW, num_classes]
+        Output:
+            bboxes: [N, 4]
+            score:  [N,]
+            labels: [N,]
         """
 
         labels = np.argmax(scores, axis=1)
@@ -196,7 +206,7 @@ class myYOLO(nn.Module):
         # 每个边界框的得分
         scores = torch.sigmoid(conf_pred) * torch.softmax(cls_pred, dim=-1)
         
-        # 解算边界框, 并归一化边界框: [H*W*KA, 4]
+        # 解算边界框, 并归一化边界框: [H*W, 4]
         bboxes = self.decode_boxes(txtytwth_pred) / self.input_size
         bboxes = torch.clamp(bboxes, 0., 1.)
         
