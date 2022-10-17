@@ -398,7 +398,7 @@ class Augmentation(object):
         return self.augment(img, boxes, labels)
 
 
-class BaseTransform:
+class BaseTransform(object):
     def __init__(self, size, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
         self.size = size
         self.mean = np.array(mean, dtype=np.float32)
