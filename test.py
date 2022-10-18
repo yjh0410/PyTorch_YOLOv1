@@ -29,10 +29,12 @@ parser.add_argument('--conf_thresh', default=0.1, type=float,
                     help='得分阈值')
 parser.add_argument('--nms_thresh', default=0.50, type=float,
                     help='NMS 阈值')
-parser.add_argument('--visual_threshold', default=0.3, type=float,
+parser.add_argument('-vs', '--visual_threshold', default=0.3, type=float,
                     help='用于可视化的阈值参数')
 parser.add_argument('--cuda', action='store_true', default=False, 
                     help='use cuda.')
+parser.add_argument('--save', action='store_true', default=False, 
+                    help='save vis results.')
 
 args = parser.parse_args()
 
@@ -82,7 +84,10 @@ def visualize(img,
     return img
         
 
-def test(net, device, testset, transform, thresh, class_colors=None, class_names=None, class_indexs=None, dataset='voc'):
+def test(args, model, device, testset, transform, class_colors=None, class_names=None, class_indexs=None):
+    save_path = os.path.join('det_results/', args.dataset, args.version)
+    os.makedirs(save_path, exist_ok=True)
+
     num_images = len(testset)
     for index in range(num_images):
         print('Testing image {:d}/{:d}....'.format(index+1, num_images))
@@ -95,7 +100,7 @@ def test(net, device, testset, transform, thresh, class_colors=None, class_names
 
         t0 = time.time()
         # 前向推理
-        bboxes, scores, labels = net(x)
+        bboxes, scores, labels = model(x)
         print("detection time used ", time.time() - t0, "s")
         
         # 将预测的输出映射到原图的尺寸上去
@@ -103,9 +108,23 @@ def test(net, device, testset, transform, thresh, class_colors=None, class_names
         bboxes *= scale
 
         # 可视化检测结果
-        img_processed = visualize(img, bboxes, scores, labels, thresh, class_colors, class_names, class_indexs, dataset)
+        img_processed = visualize(
+            img=img,
+            bboxes=bboxes,
+            scores=scores,
+            labels=labels,
+            vis_thresh=args.visual_threshold,
+            class_colors=class_colors,
+            class_names=class_names,
+            class_indexs=class_indexs,
+            dataset_name=args.dataset
+            )
         cv2.imshow('detection', img_processed)
         cv2.waitKey(0)
+
+        # 保存可视化结果
+        if args.save:
+            cv2.imwrite(os.path.join(save_path, str(index).zfill(6) +'.jpg'), img_processed)
 
 
 if __name__ == '__main__':
@@ -164,13 +183,11 @@ if __name__ == '__main__':
     val_transform = BaseTransform(input_size)
 
     # 开始测试
-    test(net=model, 
-        device=device, 
-        testset=dataset,
-        transform=val_transform,
-        thresh=args.visual_threshold,
-        class_colors=class_colors,
-        class_names=class_names,
-        class_indexs=class_indexs,
-        dataset=args.dataset
+    test(model=model, 
+         device=device, 
+         testset=dataset,
+         transform=val_transform,
+         class_colors=class_colors,
+         class_names=class_names,
+         class_indexs=class_indexs,
         )

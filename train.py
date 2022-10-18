@@ -112,7 +112,7 @@ def train():
     model = build_yolo(args, device, train_size, num_classes, trainable=True)
     model.to(device).train()
 
-    # compute FLOPs and Params
+    # 计算模型的FLOPs和参数量
     model_copy = deepcopy(model)
     model_copy.trainable = False
     model_copy.eval()
