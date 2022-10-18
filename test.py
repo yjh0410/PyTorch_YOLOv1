@@ -183,7 +183,8 @@ if __name__ == '__main__':
     val_transform = BaseTransform(input_size)
 
     # 开始测试
-    test(model=model, 
+    test(args=args,
+         model=model, 
          device=device, 
          testset=dataset,
          transform=val_transform,
