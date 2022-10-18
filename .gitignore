@@ -3,3 +3,5 @@ __pycache__
 *pt
 *.pth
 *.pkl
+*.pyc
+det_results
