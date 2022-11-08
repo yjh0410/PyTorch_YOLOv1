@@ -130,7 +130,7 @@ class VOCDetection(data.Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
 
-        # basic augmentation(SSDAugmentation or BaseTransform)
+        # Augmentation or BaseTransform
         if self.transform is not None:
             # check labels
             if len(target) == 0:
