@@ -116,6 +116,7 @@ def train():
     model_copy = deepcopy(model)
     model_copy.trainable = False
     model_copy.eval()
+    model_copy.set_grid(val_size)
     FLOPs_and_Params(model=model_copy, 
                         img_size=val_size, 
                         device=device)
