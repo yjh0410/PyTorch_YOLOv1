@@ -199,12 +199,12 @@ def train():
             # 前向推理和计算损失
             conf_loss, cls_loss, bbox_loss, total_loss = model(images, targets=targets)
 
-            # 梯度累加
+            # 梯度累加 & 反向传播
             total_loss /= args.accumulate
+            total_loss.backward()        
 
+            # 更新
             if ni % args.accumulate == 0:
-                # 反向传播
-                total_loss.backward()        
                 optimizer.step()
                 optimizer.zero_grad()
 
