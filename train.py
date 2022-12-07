@@ -42,8 +42,10 @@ def parse_args():
                         help='yolo')
 
     # 训练配置
-    parser.add_argument('--batch_size', default=32, type=int, 
+    parser.add_argument('-bs', '--batch_size', default=8, type=int, 
                         help='Batch size for training')
+    parser.add_argument('-accu', '--accumulate', default=8, type=int, 
+                        help='gradient accumulate.')
     parser.add_argument('-no_wp', '--no_warm_up', action='store_true', default=False,
                         help='yes or no to choose using warmup strategy to train')
     parser.add_argument('--wp_epoch', type=int, default=1,
@@ -161,10 +163,12 @@ def train():
             set_lr(optimizer, tmp_lr)
     
         for iter_i, (images, targets) in enumerate(dataloader):
+            ni = iter_i+epoch*epoch_size
             # 使用warm-up策略来调整早期的学习率
             if not args.no_warm_up:
                 if epoch < args.wp_epoch:
-                    tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (args.wp_epoch*epoch_size), 4)
+                    nw = args.wp_epoch*epoch_size
+                    tmp_lr = base_lr * pow((ni)*1. / (nw), 4)
                     set_lr(optimizer, tmp_lr)
 
                 elif epoch == args.wp_epoch and iter_i == 0:
@@ -195,10 +199,14 @@ def train():
             # 前向推理和计算损失
             conf_loss, cls_loss, bbox_loss, total_loss = model(images, targets=targets)
 
-            # 反向传播
-            total_loss.backward()        
-            optimizer.step()
-            optimizer.zero_grad()
+            # 梯度累加
+            total_loss /= args.accumulate
+
+            if ni % args.accumulate == 0:
+                # 反向传播
+                total_loss.backward()        
+                optimizer.step()
+                optimizer.zero_grad()
 
             if iter_i % 10 == 0:
                 if args.tfboard:
