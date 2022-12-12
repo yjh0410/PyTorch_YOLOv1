@@ -236,11 +236,8 @@ def build_resnet(model_name='resnet18', pretrained=False):
 
 
 if __name__=='__main__':
-    #model = torchvision.models.resnet50()
-    print("found ", torch.cuda.device_count(), " GPU(s)")
-    device = torch.device("cuda")
-    model = resnet101(detection=True).to(device)
+    model, feat_dim = build_resnet(model_name='resnet18', pretrained=True)
     print(model)
 
-    input = torch.randn(1, 3, 512, 512).to(device)
+    input = torch.randn(1, 3, 512, 512)
     output = model(input)
